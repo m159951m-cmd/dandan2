@@ -720,7 +720,9 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 // 같은 날 안에서는 과장님 일정이 제일 위, 그다음 시간 순
 const isBossT=t=>t.cat==='과장'||(typeof bossId==='function'&&!!t.owner&&t.owner===bossId());
-const sortT=(a,b)=>a.date.localeCompare(b.date)||(isBossT(b)-isBossT(a))||(a.time||'99:99').localeCompare(b.time||'99:99');
+// 순서: 과장님 → 과 주요일정 → 내·동료 일정
+const rankT=t=>isBossT(t)?0:t.owner===DEPT_ID?1:2;
+const sortT=(a,b)=>a.date.localeCompare(b.date)||(rankT(a)-rankT(b))||(a.time||'99:99').localeCompare(b.time||'99:99');
 function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,1800)}
 
 /* ---------- 상태 ---------- */
@@ -836,6 +838,7 @@ $('logout').textContent='다른 이름으로';
 
 function stopAll(){Object.values(subs).forEach(f=>f());subs={};if(unsubUsers)unsubUsers();if(unsubMemo)unsubMemo();unsubUsers=unsubMemo=null;profiles={};data={};loaded={}}
 
+let pickedDefault=false; // 팀 화면은 처음에 "과 주요일정"을 보여 줌
 async function startApp(u){
   stopAll(); me=u;
   if(!u){$('login').hidden=false;$('app').hidden=true;return}
@@ -853,6 +856,7 @@ async function startApp(u){
     if(!profiles[u.uid]||!profiles[u.uid].name){profiles[u.uid]={...(profiles[u.uid]||{}),name:u.name};setDoc(doc(fs,'users',u.uid),{name:u.name},{merge:true}).catch(()=>{})}
     // 다른 곳에서 이름이 바뀌었으면 화면과 이 PC의 기억도 새 이름으로
     const cur=profiles[u.uid].name; if(cur&&cur!==me.name){me.name=cur;$('who').textContent=cur+' 님';try{localStorage.setItem('who-v1',JSON.stringify({id:u.uid,name:cur}))}catch(e){}}
+    if(!pickedDefault&&!isPersonal&&profiles[DEPT_ID]){pickedDefault=true;viewing=DEPT_ID;watchMemo()}
     watchNeeded();
     $('rename').hidden=!$('name-form').hidden;
     renderPeople(); render();
@@ -894,9 +898,9 @@ function watchMemo(){
 /* ---------- 사람 선택 ---------- */
 function renderPeople(){
   if(isPersonal){$('people').innerHTML='<span class="lbl personal-lbl">개인 대시보드 · 나만 볼 수 있어요</span>';return}
-  const others=Object.keys(profiles).filter(u=>u!==me.uid).sort((a,b)=>nameOf(a).localeCompare(nameOf(b),'ko'));
+  const others=Object.keys(profiles).filter(u=>u!==me.uid&&u!==DEPT_ID).sort((a,b)=>nameOf(a).localeCompare(nameOf(b),'ko'));
   const btn=(v,label)=>'<button type="button" data-p="'+v+'" aria-pressed="'+(viewing===v)+'">'+label+'</button>';
-  $('people').innerHTML='<span class="lbl">누구의 일정</span>'+btn('all','전체')+btn(me.uid,esc(myName())+'<span class="me">(나)</span>')+others.map(u=>btn(u,esc(nameOf(u)))).join('');
+  $('people').innerHTML='<span class="lbl">누구의 일정</span>'+btn('all','전체')+(profiles[DEPT_ID]?btn(DEPT_ID,esc(nameOf(DEPT_ID))):'')+btn(me.uid,esc(myName())+'<span class="me">(나)</span>')+others.map(u=>btn(u,esc(nameOf(u)))).join('');
 }
 $('people').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b||isPersonal)return;viewing=b.dataset.p;weekOffset=0;taskPage=1;watchNeeded();renderPeople();watchMemo();render()});
 $('name-form').addEventListener('submit',async e=>{e.preventDefault();
@@ -916,13 +920,13 @@ $('rename').onclick=()=>{$('name-input').value=myName();$('name-form').hidden=fa
 /* ---------- 화면 그리기 ---------- */
 function header(){
   now=new Date(); TODAY=ymd(now); const h=now.getHours();
-  const title=viewing==='all'?'우리 팀 전체 일정':viewing===me.uid?(h<12?'좋은 아침입니다':h<18?'오늘도 힘내세요':'오늘 하루 수고하셨어요'):nameOf(viewing)+' 님의 일정';
+  const title=viewing==='all'?'우리 팀 전체 일정':viewing===me.uid?(h<12?'좋은 아침입니다':h<18?'오늘도 힘내세요':'오늘 하루 수고하셨어요'):viewing===DEPT_ID?'과 주요일정':nameOf(viewing)+' 님의 일정';
   $('greet').textContent=title;
   $('today-label').textContent=now.getFullYear()+'년 '+(now.getMonth()+1)+'월 '+now.getDate()+'일 '+DOW[now.getDay()]+'요일'+(isPersonal?' · 개인 대시보드':viewing!==me.uid&&viewing!=='all'?' · 함께 보고 고칠 수 있어요':' · 팀 대시보드');
   $('week-tag').textContent=now.getFullYear()+' · W'+isoWeek(now);
   $('now-label').textContent='지금 '+pad(h)+':'+pad(now.getMinutes());
   if(!$('f-date').value)$('f-date').value=TODAY;
-  $('f-title').placeholder=viewing==='all'?'내 일정에 추가할 할 일':viewing===me.uid?'할 일을 입력하세요':nameOf(viewing)+' 님 일정에 추가할 할 일';
+  $('f-title').placeholder=viewing==='all'?'내 일정에 추가할 할 일':viewing===me.uid?'할 일을 입력하세요':viewing===DEPT_ID?'과 주요일정에 추가할 일정':nameOf(viewing)+' 님 일정에 추가할 할 일';
   $('memo-title').textContent=viewing==='all'?'메모':viewing===me.uid?'메모':nameOf(viewing)+' 님 메모';
 }
 const ownerTag=t=>t.owner===DEPT_ID?'':viewing==='all'?'<span class="pill owner">'+esc(nameOf(t.owner))+'</span> ':String(t.owner).startsWith('T:')?'<span class="pill teamp" title="팀 일정에도 보여요">팀 공유</span> ':'';
@@ -984,7 +988,7 @@ function stats(){
 function timeline(){
   const el=$('timeline');
   if(!ready()){el.innerHTML='<div class="empty">일정을 불러오는 중입니다…</div>';return}
-  const td=calTasks().filter(t=>occurs(t,TODAY)).sort((a,b)=>(isBossT(b)-isBossT(a))||isMulti(b)-isMulti(a)||sortT(a,b));
+  const td=calTasks().filter(t=>occurs(t,TODAY)).sort((a,b)=>(rankT(a)-rankT(b))||isMulti(b)-isMulti(a)||sortT(a,b));
   if(!td.length){el.innerHTML='<div class="empty">오늘 등록된 일정이 없습니다.</div>';return}
   const cur=pad(now.getHours())+':'+pad(now.getMinutes()); let nowMarked=false;
   el.innerHTML=td.map(t=>{let cls=t.done?'done':'';if(!t.done&&!nowMarked&&!isMulti(t)&&t.time&&t.time>=cur){cls='now';nowMarked=true}
@@ -1023,7 +1027,7 @@ function week(){
   const days=[...Array(7)].map((_,i)=>ymd(addDays(m,i)));
   // 주간은 여러 날 일정도 날짜마다 카드로 (과장님 일정이 항상 맨 위, 모두 보여 줌)
   $('week').innerHTML=days.map((k,i)=>{const d=parse(k);
-    const items=T.filter(t=>occurs(t,k)).sort((a,b)=>(isBossT(b)-isBossT(a))||(isMulti(b)-isMulti(a))||(a.time||'99:99').localeCompare(b.time||'99:99')||a.title.localeCompare(b.title));
+    const items=T.filter(t=>occurs(t,k)).sort((a,b)=>(rankT(a)-rankT(b))||(isMulti(b)-isMulti(a))||(a.time||'99:99').localeCompare(b.time||'99:99')||a.title.localeCompare(b.title));
     const B={n:items.length,h:''}, show=items, hidden=0;
     return '<div class="day'+(k===TODAY?' today':'')+(i>4?' wknd':'')+'" data-date="'+k+'" role="button" tabindex="0" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+items.length+'건 크게 보기"><div class="dh"><span>'+DOW[d.getDay()]+'</span><b>'+d.getDate()+'</b></div>'+
       show.map(t=>wkChip(t,k)).join('')+'</div>'}).join('');
@@ -1075,7 +1079,7 @@ function renderDay(){
   $('day-title').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일 '+DOW[d.getDay()]+'요일'+(viewing!=='all'&&viewing!==me.uid?' · '+nameOf(viewing)+' 님':'');
   const dl=$('day-dday'); dl.textContent=dd===0?'오늘':dd>0?'D-'+dd:'D+'+(-dd); dl.className='dday'+(dd>=0&&dd<=3?' soon':'');
   $('d-end').min=ymd(addDays(d,1));
-  const items=calTasks().filter(t=>occurs(t,dayOpen)).sort((a,b)=>(isBossT(b)-isBossT(a))||isMulti(b)-isMulti(a)||sortT(a,b));
+  const items=calTasks().filter(t=>occurs(t,dayOpen)).sort((a,b)=>(rankT(a)-rankT(b))||isMulti(b)-isMulti(a)||sortT(a,b));
   const opt=(v,l,cur)=>'<option value="'+v+'"'+(v===cur?' selected':'')+'>'+l+'</option>';
   $('day-list').innerHTML=items.length?items.map(t=>{
     if(editing===t.owner+'/'+t.id)return '<li class="editing"><form class="edit-grid" data-o="'+t.owner+'" data-id="'+t.id+'">'+
