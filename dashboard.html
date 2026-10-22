@@ -91,6 +91,16 @@ ul.tasks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .week .chip{font-size:14px;line-height:1.45;padding:5px 8px}
 .week .mbar{font-size:13px;height:24px;line-height:20px}
 .chip.boss,.mchip.boss{font-weight:700}
+/* 과 주요일정 카드: 팀 색 + 이름표 */
+.week .chip.is-dept{border-left:4px solid var(--cfg);background:var(--cbg);color:#1d2b3a}
+.week .chip.is-dept .num{color:var(--cfg);font-weight:700}
+.week .chip.boss{box-shadow:inset 0 0 0 2px var(--cfg);font-size:15px}
+.gline{display:flex;gap:4px;align-items:center;margin:1px 0 3px}
+.gtag{display:inline-block;font-size:11px;font-weight:700;color:#fff;background:var(--cfg);border-radius:4px;padding:0 5px;margin-right:4px;line-height:17px;vertical-align:1px}
+.trip{display:inline-block;font-size:11px;font-weight:700;color:var(--cfg);border:1px solid var(--cfg);border-radius:4px;padding:0 4px;margin-right:4px;line-height:15px;vertical-align:1px}
+.glegend{display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:12px;vertical-align:middle;font-size:12px;font-weight:600}
+.glegend span{display:inline-flex;align-items:center;gap:4px;color:var(--cfg)}
+.glegend i{width:10px;height:10px;border-radius:3px;background:var(--cfg);display:inline-block}
 .chip{font-size:13px;line-height:1.4;padding:4px 7px;border-radius:5px;background:var(--bg);white-space:normal;overflow-wrap:anywhere;border-left:3px solid var(--accent)}
 .chip .num{display:block;font-size:11px;color:var(--muted)}
 .chip.high{border-left-color:var(--hi)} .chip.mid{border-left-color:var(--mid)} .chip.low{border-left-color:var(--lo)}
@@ -498,7 +508,7 @@ ul.big li[class*=" c-"]{border-left-color:var(--cfg)}
   </div>
 
   <section class="panel week-panel">
-        <h2><span id="wk-title">주간 일정</span>
+        <h2><span id="wk-title">주간 일정</span><span class="glegend" id="glegend"></span>
           <span class="wk-nav"><button type="button" id="wk-prev" aria-label="이전 주">‹</button><button type="button" id="wk-now">이번 주</button><button type="button" id="wk-report" class="printbtn">주간 업무보고</button><button type="button" id="wk-print" class="printbtn">인쇄 · PDF</button><button type="button" id="wk-next" aria-label="다음 주">›</button></span>
         </h2>
         <div class="week" id="week"></div>
@@ -940,7 +950,11 @@ const occurs=(t,k)=>t.date<=k&&k<=endOf(t);
 const daysBetween=(a,b)=>Math.round((parse(b)-parse(a))/864e5);
 const spanDays=t=>daysBetween(t.date,endOf(t))+1;
 const hashId=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;return h};
-const colorOf=t=>t.color&&COLORS[t.color]?t.color:(isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'');
+// 과 주요일정은 담당(팀)별로 색을 통일
+const GROUP_COLOR={'과장':'pink','중등장학':'sky','중등인사':'violet','교육과정':'green','교직단체':'orange'};
+const groupOf=t=>{const m=String(t.title||'').match(/^\[([^\]]+)\]/);return t.cat&&t.cat!=='업무'?t.cat:m?m[1]:''};
+const groupColor=g=>GROUP_COLOR[g]||(g?['yellow','sky','green','violet','orange'][hashId(g)%5]:'yellow');
+const colorOf=t=>t.owner===DEPT_ID?groupColor(groupOf(t)):t.color&&COLORS[t.color]?t.color:(isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'');
 const cCls=t=>{const c=colorOf(t);return c?' c-'+c:''};
 const md=s=>{const d=parse(s);return (d.getMonth()+1)+'/'+d.getDate()+'('+DOW[d.getDay()]+')'};
 const rangeLabel=t=>isMulti(t)?md(t.date)+' ~ '+md(endOf(t)):md(t.date);
@@ -1023,6 +1037,8 @@ function list(){
 const chipHTML=(t,cls)=>{const who=viewing==='all'&&t.owner!==DEPT_ID?nameOf(t.owner)+' · ':'';return '<div class="'+cls+' '+t.pri+cCls(t)+(t.done?' done':'')+(isBossT(t)?' boss':'')+'">'+(t.time?'<span class="num">'+t.time+'</span>'+(cls==='mchip'?' ':''):'')+esc(who)+esc(t.title)+(t.files&&t.files.length?' <span class="clip">첨부'+t.files.length+'</span>':'')+'</div>'};
 function week(){
   const m=addDays(mondayOf(now),weekOffset*7), e=addDays(m,6), T=calTasks();
+  const gs=[...new Set(T.filter(t=>t.owner===DEPT_ID).map(groupOf).filter(Boolean))].sort((a,b)=>(a==='과장'?-1:b==='과장'?1:a.localeCompare(b,'ko')));
+  $('glegend').innerHTML=gs.map(g=>'<span class="c-'+groupColor(g)+'"><i></i>'+esc(g)+'</span>').join('');
   $('wk-title').textContent=(m.getMonth()+1)+'.'+m.getDate()+' – '+(e.getMonth()+1)+'.'+e.getDate()+' 주간';
   const days=[...Array(7)].map((_,i)=>ymd(addDays(m,i)));
   // 주간은 여러 날 일정도 날짜마다 카드로 (과장님 일정이 항상 맨 위, 모두 보여 줌)
@@ -1035,7 +1051,10 @@ function week(){
 function wkChip(t,k){
   const who=viewing==='all'&&t.owner!==DEPT_ID?nameOf(t.owner)+' · ':'';
   const span=isMulti(t)?((parse(k)-parse(t.date))/864e5+1)+'/'+spanDays(t)+'일'+(t.time&&k===t.date?' '+t.time:''):(t.time||'');
-  return '<div class="chip '+t.pri+cCls(t)+(t.done?' done':'')+(isBossT(t)?' boss':'')+'">'+(span?'<span class="num">'+span+'</span>':'')+esc(who)+esc(t.title)+(t.files&&t.files.length?' <span class="clip">첨부'+t.files.length+'</span>':'')+'</div>';
+  let body=esc(who)+esc(t.title);
+  if(t.owner===DEPT_ID){const m=String(t.title).match(/^\[([^\]]+)\]\s*(.*)$/);const g=m?m[1]:groupOf(t), rest=m?m[2]:t.title;
+    const trip=/출장/.test(rest); body='<span class="gline"><span class="gtag">'+esc(g)+'</span>'+(trip?'<span class="trip">출장</span>':'')+'</span>'+esc(rest.replace(/출장\s*·\s*/,''))}
+  return '<div class="chip dept-chip '+t.pri+cCls(t)+(t.done?' done':'')+(isBossT(t)?' boss':'')+(t.owner===DEPT_ID?' is-dept':'')+'">'+(span?'<span class="num">'+span+'</span>':'')+body+(t.files&&t.files.length?' <span class="clip">첨부'+t.files.length+'</span>':'')+'</div>';
 }
 
 /* ---------- 월간 달력 ---------- */
