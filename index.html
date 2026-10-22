@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>단단이</title>
+<meta name="theme-color" content="#1e88d6">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 레이아웃: 위 인사·날짜 → 이름 입력(처음만) → 큰 메뉴 카드 3개 → 아래 작은 바로가기 */
+:root{
+  --bg:#f0f8ff; --surface:#ffffff; --line:#d3e7f7; --fg:#1d2b3a; --muted:#6b8196;
+  --accent:#1e88d6; --accent-soft:#e1f1fd; --violet:#5b3cc4; --violet-soft:#ece6fd; --green:#1f8a5b; --green-soft:#ddf4e8; --hi:#d9480f;
+  --font:"IBM Plex Sans KR",system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; --num:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{background:#eef8fd}
+body{margin:0;min-height:100vh;background:linear-gradient(160deg,#e3f2ff 0%,#f4fbff 50%,#e6f8f6 100%) fixed;color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.6;
+  padding:40px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
+[hidden]{display:none!important}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+header h1{margin:0;font-size:clamp(26px,4vw,34px);letter-spacing:-.02em;text-wrap:balance}
+header .date{color:var(--muted);font-size:15px;margin-top:4px}
+.me-line{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.me-line b{color:var(--fg)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:8px 14px}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.linkbtn{border:0;background:none;color:var(--accent);padding:4px;font-size:14px}
+/* 이름 입력 */
+.login{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px;max-width:460px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 30px rgba(30,136,214,.08)}
+.login h2{margin:0;font-size:22px}
+.login p{margin:0;color:var(--muted);font-size:14px}
+.login form{display:flex;gap:8px}
+.login input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:17px;background:var(--bg)}
+.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;padding:10px 20px}
+.confirm{background:var(--accent-soft);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.confirm .row{display:flex;gap:8px;flex-wrap:wrap}
+.msg{color:var(--hi);font-size:14px;min-height:1em}
+/* 메뉴 카드 */
+.menu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.card{display:flex;flex-direction:column;gap:12px;text-decoration:none;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:26px 24px 22px;min-height:230px;box-shadow:0 6px 24px rgba(30,136,214,.08);transition:transform .15s,box-shadow .15s,border-color .15s;position:relative}
+.card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(30,136,214,.16);border-color:var(--c)}
+.card .ic{width:56px;height:56px;border-radius:16px;background:var(--cs);color:var(--c);display:flex;align-items:center;justify-content:center}
+.card .no{position:absolute;top:22px;right:24px;font-family:var(--num);font-size:13px;color:var(--muted)}
+.card h3{margin:4px 0 0;font-size:22px}
+.card p{margin:0;color:var(--muted);font-size:14px;flex:1}
+.card .go{font-weight:600;color:var(--c);font-size:14px}
+.c1{--c:var(--violet);--cs:var(--violet-soft)} .c2{--c:var(--green);--cs:var(--green-soft)} .c3{--c:var(--accent);--cs:var(--accent-soft)}
+.more{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;font-size:14px}
+.more a{color:var(--muted);text-decoration:none;border:1px solid var(--line);background:rgba(255,255,255,.7);border-radius:999px;padding:6px 14px}
+.more a:hover{color:var(--accent);border-color:var(--accent)}
+.note{text-align:center;font-size:12px;color:var(--muted);margin:0}
+@media (max-width:760px){.menu{grid-template-columns:minmax(0,1fr)}.card{min-height:0}}
+@media (prefers-reduced-motion:reduce){.card{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="hello">단단이</h1>
+      <div class="date" id="date"></div>
+    </div>
+    <div class="me-line" id="me-line" hidden><span><b id="me-name"></b> 님으로 들어왔어요</span><button type="button" class="linkbtn" id="switch">다른 이름으로</button></div>
+  </header>
+
+  <section class="login" id="login" hidden aria-labelledby="login-title">
+    <h2 id="login-title">이름을 입력해 주세요</h2>
+    <p>이름만 입력하면 들어갈 수 있어요. 이 PC에서는 다음부터 자동으로 들어가요.</p>
+    <form id="login-form">
+      <input id="name" placeholder="예: 홍길동" maxlength="20" autocomplete="name" aria-label="이름" required>
+      <button class="primary" type="submit" id="go">들어가기</button>
+    </form>
+    <div class="confirm" id="confirm" hidden>
+      <span><b id="new-name"></b>(으)로 처음 들어오셨어요. 새로 시작할까요?</span>
+      <span style="font-size:13px;color:var(--muted)">이미 쓰고 있었다면 이름을 똑같이(띄어쓰기 포함) 입력했는지 확인해 주세요.</span>
+      <div class="row"><button type="button" class="primary" id="yes">새로 시작하기</button><button type="button" id="no">다시 입력</button></div>
+    </div>
+    <div class="msg" id="msg" role="alert"></div>
+  </section>
+
+  <nav class="menu" id="menu" hidden aria-label="메뉴">
+    <a class="card c1" id="collect" href="#" target="_blank" rel="noopener">
+      <span class="no">1</span>
+      <span class="ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10l6 6v10H4z"/><path d="M14 4v6h6"/><path d="M8 14h8M8 17h5"/></svg></span>
+      <h3>자료취합</h3>
+      <p>취합 건을 등록하고, 여러 직원의 파일과 의견을 한곳에 모아요.</p>
+      <span class="go">새 창에서 열기 ↗</span>
+    </a>
+    <a class="card c2" href="dashboard.html?space=personal">
+      <span class="no">2</span>
+      <span class="ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span>
+      <h3>개인 업무일정</h3>
+      <p>나만 쓰는 할 일과 일정이에요. 팀 화면에는 나오지 않아요.</p>
+      <span class="go">들어가기 →</span>
+    </a>
+    <a class="card c3" href="dashboard.html">
+      <span class="no">3</span>
+      <span class="ic" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 14h3M13 14h3M8 17h3"/></svg></span>
+      <h3>팀 일정</h3>
+      <p>팀원들과 서로의 일정을 함께 보고 고쳐요. 식단표와 교육 뉴스도 있어요.</p>
+      <span class="go">들어가기 →</span>
+    </a>
+  </nav>
+
+  <div class="more" id="more" hidden>
+    <a href="kakao.html">카톡으로 받기 (일정·뉴스)</a>
+    <a href="widget.html">업무 캘린더 (작은 창)</a>
+    <a href="업무일정표.exe" download title="받은 파일을 더블클릭하면 이름·모니터만 고르고 바로 시작돼요">바탕화면 일정표 프로그램 받기 (Windows)</a>
+  </div>
+  <p class="note" id="note" hidden>이름만으로 들어가는 방식이라, 주소를 아는 사람은 누구나 일정을 볼 수 있어요. 개인정보는 적지 마세요.</p>
+</div>
+
+<script type="module">
+import { firebaseConfig, collectUrl } from "./config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { ready, savedWho, forgetWho, enterByName, whoError } from "./who.js";
+const $=id=>document.getElementById(id);
+if(collectUrl){$('collect').href=collectUrl}else{const a=$('collect');a.removeAttribute('href');a.removeAttribute('target');a.style.opacity=.6;a.querySelector('.go').textContent='config.js에 주소를 넣으면 열려요'}
+if(String(firebaseConfig.apiKey||'').startsWith('여기에')){$('msg').textContent='config.js에 Firebase 연결 정보를 넣어 주세요.';$('login').hidden=false;throw new Error('config')}
+const app=initializeApp(firebaseConfig), auth=getAuth(app), fs=getFirestore(app);
+const DOW=['일','월','화','수','목','금','토'], n=new Date();
+$('date').textContent=n.getFullYear()+'년 '+(n.getMonth()+1)+'월 '+n.getDate()+'일 '+DOW[n.getDay()]+'요일';
+const greet=()=>{const h=new Date().getHours();return h<12?'좋은 아침이에요':h<18?'오늘도 힘내세요':'오늘 하루 수고하셨어요'};
+function showMenu(w){
+  $('hello').textContent=w.name+' 님, '+greet();
+  $('me-name').textContent=w.name; $('me-line').hidden=false;
+  $('login').hidden=true; $('menu').hidden=false; $('more').hidden=false; $('note').hidden=false;
+}
+function showLogin(){
+  $('hello').textContent='단단이'; $('me-line').hidden=true;
+  $('menu').hidden=true; $('more').hidden=true; $('note').hidden=true;
+  $('login').hidden=false; $('confirm').hidden=true; $('msg').textContent=''; $('name').value=''; setTimeout(()=>$('name').focus(),0);
+}
+let pending='';
+async function go(create){
+  $('msg').textContent=''; $('go').disabled=true;
+  try{
+    const r=await enterByName(fs,create?pending:$('name').value,{create});
+    if(r.isNew){pending=r.name;$('new-name').textContent=r.name;$('confirm').hidden=false;$('yes').focus();return}
+    showMenu(r);
+  }catch(e){$('msg').textContent=whoError(e)}
+  finally{$('go').disabled=false}
+}
+$('login-form').addEventListener('submit',e=>{e.preventDefault();go(false)});
+$('yes').onclick=()=>go(true);
+$('no').onclick=()=>{$('confirm').hidden=true;$('name').select()};
+$('switch').onclick=()=>{forgetWho();showLogin()};
+ready(auth).then(()=>{const w=savedWho(); w?showMenu(w):showLogin()}).catch(e=>{showLogin();$('msg').textContent=whoError(e)});
+</script>
+</body>
+</html>

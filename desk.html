@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>바탕화면 업무 캘린더</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;600&family=IBM+Plex+Mono:wght@300;500&display=swap">
+<style>
+/* 바탕화면(Lively Wallpaper)용: 화면 전체 배경 + 왼쪽 아래 큰 날짜·시계 + 오른쪽 캘린더 카드 */
+:root{--sky1:#d9ecfb;--sky2:#eef7ff;--mint:#e3f6f1;--ink:#1d2b3a;--muted:#5c7186;--card:#ffffff;--font:"IBM Plex Sans KR",system-ui,"Malgun Gothic",sans-serif;--num:"IBM Plex Mono",ui-monospace,Consolas,monospace;color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:radial-gradient(120% 90% at 15% 10%,var(--sky2) 0%,var(--sky1) 45%,#cfe3f5 100%);color:var(--ink);font-family:var(--font);overflow:hidden;position:relative}
+body::after{content:"";position:absolute;inset:auto -10% -30% 30%;height:70%;background:radial-gradient(closest-side,var(--mint),transparent);opacity:.8;pointer-events:none}
+.clock{position:absolute;left:clamp(24px,5vw,80px);bottom:clamp(40px,9vh,110px);z-index:1;user-select:none}
+.clock .time{font-family:var(--num);font-weight:300;font-size:clamp(56px,9vw,128px);line-height:1;letter-spacing:-.02em}
+.clock .date{font-size:clamp(18px,2vw,28px);font-weight:400;color:var(--muted);margin-top:8px}
+.card{position:absolute;top:clamp(20px,4vh,48px);bottom:clamp(60px,8vh,96px);width:clamp(340px,26vw,440px);background:var(--card);border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(20,60,100,.18),0 2px 6px rgba(20,60,100,.08);z-index:2}
+.card.right{right:clamp(20px,3vw,48px)} .card.left{left:clamp(20px,3vw,48px)}
+.card iframe{width:100%;height:100%;border:0;display:block}
+body.fullscreen .clock{display:none}
+body.fullscreen .card{inset:0;width:auto;border-radius:0;box-shadow:none}
+body.left .clock{left:auto;right:clamp(24px,5vw,80px);text-align:right}
+
+/* 화면 맞춤 */
+.cal-ov{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);padding:20px 22px;width:min(380px,90vw);font-size:15px;color:var(--ink)}
+.cal-ov h2{margin:0 0 4px;font-size:19px}
+.cal-ov p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.6}
+.cal-row{display:grid;grid-template-columns:1fr auto 64px auto;align-items:center;gap:8px;padding:5px 0}
+.cal-row b{font-family:var(--num);text-align:center;font-weight:500}
+.cal-ov button{font:inherit;border:1px solid #d3e7f7;background:#fff;border-radius:10px;padding:6px 14px;cursor:pointer}
+.cal-ov button.pm{width:40px;font-size:18px;padding:4px 0}
+.cal-ov .acts{display:flex;justify-content:space-between;margin-top:12px}
+.cal-ov .ok{background:#1e88d6;border-color:#1e88d6;color:#fff;font-weight:600}
+body.calib .card{outline:4px dashed #e8590c;outline-offset:-4px}
+</style>
+</head>
+<body>
+<div class="clock" aria-hidden="true"><div class="time" id="t"></div><div class="date" id="d"></div></div>
+<div class="card right" id="card"><iframe id="frame" src="about:blank" title="업무 캘린더"></iframe></div>
+<div class="cal-ov" id="cal" hidden>
+  <h2>화면 맞춤</h2>
+  <p>주황 점선이 모두 보일 때까지 잘린 쪽의 여백을 늘려 주세요. 맞춘 값은 이 PC에 저장돼요.</p>
+  <div class="cal-row"><span>위쪽</span><button class="pm" data-k="t" data-d="-10">−</button><b id="v-t"></b><button class="pm" data-k="t" data-d="10">+</button></div>
+  <div class="cal-row"><span>아래쪽</span><button class="pm" data-k="b" data-d="-10">−</button><b id="v-b"></b><button class="pm" data-k="b" data-d="10">+</button></div>
+  <div class="cal-row"><span>왼쪽</span><button class="pm" data-k="l" data-d="-10">−</button><b id="v-l"></b><button class="pm" data-k="l" data-d="10">+</button></div>
+  <div class="cal-row"><span>오른쪽</span><button class="pm" data-k="r" data-d="-10">−</button><b id="v-r"></b><button class="pm" data-k="r" data-d="10">+</button></div>
+  <div class="acts"><button id="cal-reset">처음으로</button><button class="ok" id="cal-ok">다 됐어요</button></div>
+</div>
+<script>
+(function(){
+  // 기본: 화면 전체를 일정표로 채움 (두 번째 모니터용)
+  // ?mode=card  → 배경 + 시계 + 오른쪽 작은 카드 / ?mode=card&side=left → 카드를 왼쪽에
+  var q=new URLSearchParams(location.search);
+  var nm=q.get('name')?'name='+encodeURIComponent(q.get('name')):'';
+  document.getElementById('frame').src='widget.html?full=1'+(nm?'&'+nm:'');
+  if(q.get('mode')==='card'){
+    document.getElementById('frame').src='widget.html'+(nm?'?'+nm:'');
+    if(q.get('side')==='left'){document.getElementById('card').className='card left';document.body.classList.add('left')}
+  }else{document.body.classList.add('fullscreen')}
+  // 화면 맞춤: 잘리는 가장자리만큼 여백 주기 (이 PC에 저장)
+  var ins={t:0,r:0,b:0,l:0}; try{var sv=JSON.parse(localStorage.getItem('desk-inset')||'null');if(sv)ins=sv}catch(e){}
+  ['t','r','b','l'].forEach(function(k){var v=+q.get('pad'+k);if(v)ins[k]=v});
+  function apply(){var c=document.getElementById('card');if(!document.body.classList.contains('fullscreen'))return;
+    c.style.top=ins.t+'px';c.style.right=ins.r+'px';c.style.bottom=ins.b+'px';c.style.left=ins.l+'px';
+    ['t','r','b','l'].forEach(function(k){document.getElementById('v-'+k).textContent=ins[k]+'px'})}
+  function save(){try{localStorage.setItem('desk-inset',JSON.stringify(ins))}catch(e){}}
+  apply();
+  window.addEventListener('message',function(e){if(e.origin===location.origin&&e.data&&e.data.type==='calibrate'){document.getElementById('cal').hidden=false;document.body.classList.add('calib')}});
+  document.getElementById('cal').addEventListener('click',function(e){var b=e.target.closest('[data-k]');if(!b)return;var k=b.dataset.k;ins[k]=Math.max(0,Math.min(400,ins[k]+ +b.dataset.d));apply();save()});
+  document.getElementById('cal-reset').onclick=function(){ins={t:0,r:0,b:0,l:0};apply();save()};
+  document.getElementById('cal-ok').onclick=function(){document.getElementById('cal').hidden=true;document.body.classList.remove('calib')};
+  var DOW=['일','월','화','수','목','금','토'], pad=function(n){return String(n).padStart(2,'0')};
+  function tick(){var n=new Date();document.getElementById('t').textContent=pad(n.getHours())+':'+pad(n.getMinutes());
+    document.getElementById('d').textContent=n.getFullYear()+'년 '+(n.getMonth()+1)+'월 '+n.getDate()+'일 '+DOW[n.getDay()]+'요일'}
+  tick(); setInterval(tick,10000);
+})();
+</script>
+</body>
+</html>

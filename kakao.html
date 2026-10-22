@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단단이 · 카톡으로 받기</title>
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--surface:#fff;--line:#d3e7f7;--fg:#1d2b3a;--muted:#6b8196;--accent:#1e88d6;--soft:#e1f1fd;--hi:#d9480f;--ok:#1f8a5b;--okbg:#ddf4e8;--kakao:#fee500;color-scheme:light}
+*{box-sizing:border-box}
+html{background:#eef8fd}
+body{margin:0;min-height:100vh;background:linear-gradient(160deg,#e3f2ff,#f4fbff 50%,#e6f8f6) fixed;color:var(--fg);font:15px/1.65 "IBM Plex Sans KR",system-ui,"Malgun Gothic",sans-serif;padding:32px 16px 56px}
+[hidden]{display:none!important}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+a.back{color:var(--muted);text-decoration:none;font-size:14px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 6px 24px rgba(30,136,214,.08)}
+h1{margin:0;font-size:24px;letter-spacing:-.01em}
+h2{margin:0;font-size:17px}
+p{margin:0}
+.muted{color:var(--muted);font-size:13px}
+input[type=text],input:not([type]){font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#f0f8ff;width:100%}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:#fff;padding:10px 16px;font-weight:500;color:inherit}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.kakao{background:var(--kakao);border-color:var(--kakao);font-weight:700;color:#191600;font-size:16px;padding:13px 18px}
+.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pick{display:flex;flex-direction:column;gap:8px}
+.pick label{display:flex;gap:12px;align-items:flex-start;border:2px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer}
+.pick label:has(input:checked){border-color:var(--accent);background:var(--soft)}
+.pick input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent);flex:none}
+.pick b{display:block}
+.pick span{font-size:13px;color:var(--muted)}
+.status{border-radius:12px;padding:12px 14px;font-size:14px;display:flex;flex-direction:column;gap:2px}
+.status.on{background:var(--okbg);color:#145c3c}
+.status.off{background:#f3f6f9;color:var(--muted)}
+.status.bad{background:#fff1e6;color:#9a3a0a}
+.err{color:var(--hi);font-weight:600;font-size:14px}
+.ok{color:var(--ok);font-weight:600;font-size:14px}
+details{font-size:13px;color:var(--muted)}
+details summary{cursor:pointer}
+.spin{width:36px;height:36px;border:4px solid #b7d8f2;border-top-color:var(--accent);border-radius:50%;animation:r 1s linear infinite;margin:6px auto}
+@keyframes r{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← 처음 화면</a>
+
+  <!-- 이름 -->
+  <section class="box" id="who-box" hidden>
+    <h1>카톡으로 받기</h1>
+    <p class="muted">먼저 단단이에 들어갈 때 쓰는 이름을 입력해 주세요.</p>
+    <form class="row" id="who-form"><input id="who-name" placeholder="예: 홍길동" maxlength="20" aria-label="이름" style="flex:1;min-width:160px"><button class="primary" type="submit">확인</button></form>
+    <p class="err" id="who-msg" role="alert"></p>
+  </section>
+
+  <!-- 연결 중 -->
+  <section class="box" id="busy" hidden><div class="spin" aria-hidden="true"></div><p style="text-align:center" id="busy-msg">카카오와 연결하는 중…</p></section>
+
+  <!-- 메인 -->
+  <section class="box" id="main" hidden>
+    <div>
+      <h1><span id="me"></span> 님, 카톡으로 받기</h1>
+      <p class="muted">고른 내용을 평일 아침마다 내 카카오톡 <b>나와의 채팅</b>으로 보내 드려요. 다른 사람에게는 가지 않아요.</p>
+    </div>
+    <div class="status off" id="status"></div>
+    <div class="pick" role="group" aria-label="받을 내용">
+      <label><input type="checkbox" id="w-tasks" checked><div><b>오늘 할 일 · 아침 7시 30분</b><span>팀 일정의 내 일정 + 개인 일정, 기한 지난 일, 내일 건수</span></div></label>
+      <label><input type="checkbox" id="w-news" checked><div><b>교육 뉴스 · 아침 9시 10분</b><span>전날 오전 9시 ~ 오늘 오전 9시, 내 키워드에 맞는 뉴스 (키워드는 개인 업무일정 화면에서 바꿔요)</span></div></label>
+    </div>
+    <button class="kakao" id="connect" type="button">카카오로 연결하기</button>
+    <div class="row"><span class="ok" id="saved" hidden>저장했어요</span><button type="button" id="stop" hidden>카톡 그만 받기</button></div>
+    <p class="err" id="err" role="alert" hidden></p>
+    <p class="muted">카카오 로그인 화면에서 <b>카카오톡 메시지 전송</b>에 동의해 주세요. 연결은 한 번만 하면 돼요.</p>
+  </section>
+
+  <!-- 관리자: 카카오 앱 키 (처음 한 번) -->
+  <section class="box" id="admin" hidden>
+    <h2>처음 한 번만: 카카오 앱 키 넣기</h2>
+    <p class="muted">카카오 개발자 사이트 → 내 애플리케이션 → 앱 키의 <b>REST API 키</b>를 넣어 주세요. 한 사람이 한 번 넣으면 팀 모두가 써요. (이 키는 로그인 주소에 그대로 보이는 공개 값이에요. 클라이언트 시크릿은 넣지 마세요.)</p>
+    <form class="row" id="key-form"><input id="key" placeholder="REST API 키" autocomplete="off" spellcheck="false" style="flex:1;min-width:200px"><button class="primary" type="submit">저장</button></form>
+    <p class="muted">카카오 개발자 사이트에 등록할 리다이렉트 URI: <b id="ru"></b></p>
+  </section>
+
+  <details id="help">
+    <summary>연결이 안 될 때</summary>
+    <ul>
+      <li>"동의하지 않음"을 눌렀다면 다시 연결하고 <b>카카오톡 메시지 전송</b>에 체크해 주세요.</li>
+      <li>"앱 관리자 설정 오류"가 나오면 관리자에게 알려 주세요. (카카오 개발자 → 카카오 로그인 → 보안 → Client Secret <b>사용 안 함</b>, 또는 앱 → 멤버에 초대가 필요할 수 있어요.)</li>
+      <li>REST API 키를 잘못 넣었다면: <button type="button" id="key-edit" style="padding:4px 10px;font-size:13px">앱 키 다시 넣기</button></li>
+    </ul>
+  </details>
+</div>
+
+<script type="module">
+import { firebaseConfig } from "./config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { ready, savedWho, enterByName, whoError } from "./who.js";
+
+const $=id=>document.getElementById(id);
+const show=(...ids)=>['who-box','busy','main','admin'].forEach(i=>$(i).hidden=!ids.includes(i));
+// 사이트가 하위 폴더(예: github.io/dandan2/)에 있어도 맞게
+const BASE=location.href.replace(/[?#].*$/,'').replace(/[^/]*$/,'');
+const REDIRECT=BASE+'kakao.html';
+$('ru').textContent=REDIRECT;
+const app=initializeApp(firebaseConfig), fs=getFirestore(app), auth=getAuth(app);
+let me=null, restKey='', sub={};
+const fmt=ms=>{if(!ms)return'';const d=new Date(ms);return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+const err=t=>{$('err').hidden=!t;$('err').textContent=t||''};
+
+async function loadKey(){
+  try{const s=await getDoc(doc(fs,'settings','kakao'));restKey=s.exists()&&s.data().restKey||''}catch(e){restKey=''}
+}
+function renderStatus(){
+  const st=$('status');
+  if(sub.connected&&sub.lastError){st.className='status bad';st.innerHTML='<b>연결에 문제가 있어요</b><span>'+String(sub.lastError).replace(/[<>&]/g,'')+' — 아래 노란 버튼으로 다시 연결해 주세요.</span>'}
+  else if(sub.connected&&(sub.tasks||sub.news)){st.className='status on';st.innerHTML='<b>카톡으로 받고 있어요 ✓</b><span>연결: '+fmt(sub.connectedAt)+(sub.lastSent?' · 마지막으로 보냄: '+fmt(sub.lastSent):'')+'</span>'}
+  else if(sub.connected){st.className='status off';st.innerHTML='<b>지금은 받지 않아요</b><span>받을 내용을 고르면 다시 보내 드려요.</span>'}
+  else{st.className='status off';st.innerHTML='<b>아직 연결하지 않았어요</b><span>받을 내용을 고르고 노란 버튼을 눌러 주세요.</span>'}
+  $('w-tasks').checked=sub.tasks!==false; $('w-news').checked=sub.news!==false;
+  $('connect').textContent=sub.connected?'카카오 다시 연결하기':'카카오로 연결하기';
+  $('stop').hidden=!(sub.connected&&(sub.tasks||sub.news));
+}
+async function saveSub(patch){
+  sub={...sub,...patch};
+  await setDoc(doc(fs,'kakaoSubs',me.id),{name:me.name,...patch,updated:Date.now()},{merge:true});
+}
+async function openMain(){
+  $('me').textContent=me.name;
+  try{const s=await getDoc(doc(fs,'kakaoSubs',me.id));sub=s.exists()?s.data():{}}catch(e){sub={}}
+  renderStatus(); show('main'); if(!restKey)$('admin').hidden=false;
+}
+// 받을 내용 바꾸기 (이미 연결된 경우 바로 저장)
+for(const id of ['w-tasks','w-news'])$(id).addEventListener('change',async()=>{
+  if(!sub.connected)return;
+  try{await saveSub({tasks:$('w-tasks').checked,news:$('w-news').checked});renderStatus();$('saved').hidden=false;setTimeout(()=>$('saved').hidden=true,1800)}catch(e){err('저장하지 못했어요. 잠시 후 다시 해 주세요.')}
+});
+$('stop').onclick=async()=>{try{await saveSub({tasks:false,news:false});renderStatus()}catch(e){err('저장하지 못했어요.')}};
+$('connect').onclick=async()=>{
+  err('');
+  if(!$('w-tasks').checked&&!$('w-news').checked){err('받을 내용을 하나 이상 골라 주세요.');return}
+  if(!restKey){$('admin').hidden=false;$('key').focus();err('먼저 카카오 앱 키(REST API 키)를 넣어 주세요.');return}
+  try{sessionStorage.setItem('kk-want',JSON.stringify({tasks:$('w-tasks').checked,news:$('w-news').checked}))}catch(e){}
+  location.href='https://kauth.kakao.com/oauth/authorize?response_type=code&scope=talk_message&client_id='+encodeURIComponent(restKey)+'&redirect_uri='+encodeURIComponent(REDIRECT)+'&state='+encodeURIComponent(me.id);
+};
+$('key-form').addEventListener('submit',async e=>{
+  e.preventDefault(); const k=$('key').value.trim(); if(k.length<10){$('key').focus();return}
+  try{await setDoc(doc(fs,'settings','kakao'),{restKey:k,updated:Date.now()},{merge:true});restKey=k;$('admin').hidden=true;err('')}catch(e2){err('키를 저장하지 못했어요. Firestore 규칙을 확인해 주세요.')}
+});
+$('key-edit').onclick=()=>{$('admin').hidden=false;$('key').value=restKey;$('key').focus()};
+$('who-form').addEventListener('submit',async e=>{
+  e.preventDefault(); $('who-msg').textContent='';
+  try{const r=await enterByName(fs,$('who-name').value,{create:false});
+    if(r.isNew){$('who-msg').textContent='"'+r.name+'" 이름이 없어요. 처음 화면에서 먼저 들어가 주세요.';return}
+    me=r; openMain()}catch(e2){$('who-msg').textContent=whoError(e2)}
+});
+
+// 카카오에서 돌아왔을 때: 인증 코드를 연결 정보로 바꿔 저장
+async function finish(code,state){
+  show('busy');
+  const want=(()=>{try{return JSON.parse(sessionStorage.getItem('kk-want')||'null')}catch(e){return null}})()||{tasks:true,news:true};
+  try{
+    if(!me||state!==me.id)throw new Error('들어온 이름이 바뀌었어요. 다시 연결해 주세요.');
+    const r=await fetch('https://kauth.kakao.com/oauth/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=utf-8'},
+      body:new URLSearchParams({grant_type:'authorization_code',client_id:restKey,redirect_uri:REDIRECT,code})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||!j.refresh_token){
+      const c=j.error_code||j.error||r.status;
+      if(/KOE010|invalid_client/.test(String(c)))throw new Error('카카오 앱에 Client Secret이 켜져 있어요. 관리자가 카카오 개발자 → 카카오 로그인 → 보안에서 "사용 안 함"으로 바꿔야 해요.');
+      if(/KOE320|invalid_grant/.test(String(c)))throw new Error('인증 시간이 지났어요. 노란 버튼을 다시 눌러 주세요.');
+      throw new Error('카카오 연결 실패 ('+c+(j.error_description?': '+j.error_description:'')+')');
+    }
+    if(!(j.scope||'').includes('talk_message'))throw new Error('"카카오톡 메시지 전송"에 동의하지 않아 보낼 수 없어요. 다시 연결하고 동의해 주세요.');
+    // 연결 정보는 "쓰기만 되는" 곳에 저장 (웹 화면에서는 아무도 읽을 수 없음)
+    await setDoc(doc(fs,'kakaoTokens',me.id),{refresh_token:j.refresh_token,refresh_expires_at:Date.now()+(j.refresh_token_expires_in||0)*1000,updated:Date.now()});
+    await saveSub({...want,connected:true,connectedAt:Date.now(),lastError:null});
+    // 연결 확인 메시지 (안 되면 그냥 넘어감)
+    let tested=false;
+    try{
+      const t={object_type:'text',text:'[단단이] '+me.name+' 님, 카톡 연결이 끝났어요 ✓\n'+(want.tasks?'· 평일 아침 7:30 오늘 할 일\n':'')+(want.news?'· 평일 아침 9:10 교육 뉴스\n':'')+'을(를) 이 채팅방으로 보내 드릴게요.',link:{web_url:BASE,mobile_web_url:BASE},button_title:'단단이 열기'};
+      const m=await fetch('https://kapi.kakao.com/v2/api/talk/memo/default/send',{method:'POST',headers:{Authorization:'Bearer '+j.access_token,'Content-Type':'application/x-www-form-urlencoded;charset=utf-8'},body:new URLSearchParams({template_object:JSON.stringify(t)})});
+      tested=m.ok;
+    }catch(e){}
+    await openMain();
+    $('saved').hidden=false; $('saved').textContent=tested?'연결 완료! 카카오톡 "나와의 채팅"을 확인해 보세요':'연결 완료! 내일 아침부터 카톡으로 받아요';
+  }catch(e){await openMain();err(e.message||String(e))}
+}
+
+ready(auth).then(async()=>{
+  await loadKey();
+  me=savedWho();
+  const q=new URLSearchParams(location.search);
+  const code=q.get('code'), state=q.get('state')||'', kerr=q.get('error');
+  if(code||kerr)history.replaceState(null,'',location.pathname);
+  if(!me){show('who-box');$('who-name').focus();return}
+  if(kerr){await openMain();err(kerr==='access_denied'?'카카오 연결을 취소했어요. 다시 연결하려면 노란 버튼을 눌러 주세요.':'카카오 연결 실패: '+(q.get('error_description')||kerr));return}
+  if(code){await finish(code,state);return}
+  openMain();
+}).catch(e=>{show('who-box');$('who-msg').textContent=whoError(e)});
+</script>
+</body>
+</html>
