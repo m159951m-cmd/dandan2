@@ -1,6 +1,6 @@
 {
-  "name": "업무 캘린더",
-  "short_name": "업무 캘린더",
+  "name": "단단이 캘린더",
+  "short_name": "단단이",
   "description": "우리 팀 업무일정을 구글 캘린더처럼 보는 작은 창",
   "start_url": "widget.html",
   "scope": "./",

@@ -53,9 +53,10 @@ body.calib .card{outline:4px dashed #e8590c;outline-offset:-4px}
   // ?mode=card  → 배경 + 시계 + 오른쪽 작은 카드 / ?mode=card&side=left → 카드를 왼쪽에
   var q=new URLSearchParams(location.search);
   var nm=q.get('name')?'name='+encodeURIComponent(q.get('name')):'';
-  document.getElementById('frame').src='widget.html?full=1'+(nm?'&'+nm:'');
+  var V='v='+Date.now(); // 매번 최신 화면을 불러오도록
+  document.getElementById('frame').src='widget.html?full=1&'+V+(nm?'&'+nm:'');
   if(q.get('mode')==='card'){
-    document.getElementById('frame').src='widget.html'+(nm?'?'+nm:'');
+    document.getElementById('frame').src='widget.html?'+V+(nm?'&'+nm:'');
     if(q.get('side')==='left'){document.getElementById('card').className='card left';document.body.classList.add('left')}
   }else{document.body.classList.add('fullscreen')}
   // 화면 맞춤: 잘리는 가장자리만큼 여백 주기 (이 PC에 저장)

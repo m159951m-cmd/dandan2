@@ -132,6 +132,13 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 /* ===== 전체 화면 모드 (?full=1, 두 번째 모니터·바탕화면용) ===== */
 body.full{font-size:15px}
 body.full .seg{display:none}
+body.full .seg.scope{display:inline-flex;margin-right:8px}
+/* 작은 창·휴대폰: 내 일정 / 팀 계획표를 둘째 줄 전체 폭으로 */
+body:not(.full) .bar{flex-wrap:wrap;row-gap:8px}
+body:not(.full) .seg.scope{order:10;flex:1 0 100%;display:flex}
+body:not(.full) .seg.scope button{flex:1;padding:7px 10px;font-size:14px}
+body.full .seg.scope button{font-size:15px;padding:7px 18px}
+body.team .mchip .who-n{font-weight:700;margin-right:3px}
 body.full .bar{padding:14px 24px 12px}
 body.full .bar h1{font-size:26px;margin-left:10px}
 body.full .icon{width:40px;height:40px;font-size:22px}
@@ -185,8 +192,12 @@ body.full main{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,24vw
     <button class="icon" id="next" aria-label="다음">›</button>
     <h1 id="title"></h1>
     <span class="sp"></span>
+    <div class="seg scope" id="scope" role="group" aria-label="팀 일정 또는 개인 일정">
+      <button type="button" data-s="team" aria-pressed="false">팀</button>
+      <button type="button" data-s="me" aria-pressed="true">개인</button>
+    </div>
     <button class="today-btn" id="today">오늘</button>
-    <div class="seg" role="group" aria-label="보기">
+    <div class="seg" id="vseg" role="group" aria-label="보기">
       <button type="button" data-v="agenda" aria-pressed="true">일정</button>
       <button type="button" data-v="month" aria-pressed="false">월</button>
     </div>
@@ -238,7 +249,9 @@ const pathOf=o=>o===PK?['personal',me.uid]:['users',o];
 const nameOf=u=>u===PK?'내 개인':(profiles[u]&&profiles[u].name)||(profiles[u]&&profiles[u].email?profiles[u].email.split('@')[0]:'이름 없음');
 const personColor=u=>u===PK?'green':u===(me&&me.uid)?'sky':CKEYS[(hashId(u)%(CKEYS.length-1))+1];
 const colorOf=t=>t.color&&CNAME[t.color]?t.color:(t.owner!==me.uid&&t.owner!==PK?personColor(t.owner):isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'def');
-const visible=()=>shown&&shown.length?shown.filter(u=>profiles[u]||u===me.uid||u===PK):[me.uid,PK];
+// 팀 월별 계획표: 팀 전원의 팀 일정 (개인 일정은 빼고)
+let TEAM=lsGet('w-team')==='1';
+const visible=()=>TEAM?Object.keys(profiles):shown&&shown.length?shown.filter(u=>profiles[u]||u===me.uid||u===PK):[me.uid,PK];
 function allTasks(){return visible().flatMap(o=>(data[o]||[]).map(t=>({...t,owner:o})))}
 
 /* 로그인 */
@@ -265,8 +278,10 @@ function lunchOf(k){const d=parse(k);const mk=d.getFullYear()+'-'+pad(d.getMonth
 /* 그리기 */
 function render(){
   if(!me)return;
-  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===view));
-  $('title').textContent=cursor.getFullYear()+'년 '+(cursor.getMonth()+1)+'월';
+  document.querySelectorAll('#vseg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===view));
+  $('title').textContent=cursor.getFullYear()+'년 '+(cursor.getMonth()+1)+'월'+(TEAM&&FULL?' · 팀 월별 계획표':'');
+  document.body.classList.toggle('team',TEAM);
+  document.querySelectorAll('#scope button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.s==='team')===TEAM));
   if(FULL)return renderFull();
   view==='month'?renderMonth():renderAgenda();
 }
@@ -279,7 +294,7 @@ function renderFull(){
   for(let d=new Date(start);d<=end;d=addDays(d,1)){
     const k=ymd(d), evs=T.filter(t=>occurs(t,k)).sort(sortEv), show=evs.slice(0,6), L=lunchOf(k);
     h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건"><span class="d">'+d.getDate()+'</span>'+
-      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(!isMulti(t)&&t.time?'<span class="tm">'+t.time+'</span>':'')+esc((t.owner!==me.uid?nameOf(t.owner)+' · ':'')+t.title)+'</span>').join('')+
+      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(!isMulti(t)&&t.time?'<span class="tm">'+t.time+'</span>':'')+(TEAM?(t.owner==='dept'?'':'<span class="who-n">'+esc(nameOf(t.owner))+'</span>')+esc(t.title):esc((t.owner!==me.uid?nameOf(t.owner)+' · ':'')+t.title))+'</span>').join('')+
       (evs.length>6?'<span class="mmore">+'+(evs.length-6)+'건</span>':'')+
       (d.getMonth()===cursor.getMonth()&&L&&L.items&&L.items.length?'<span class="mlunch"><b>점심</b>'+esc(L.items.slice(0,2).join(' · '))+'</span>':d.getMonth()===cursor.getMonth()&&L&&L.off==='외식의 날'?'<span class="mlunch"><b>외식의 날</b></span>':'')+'</button>';
   }
@@ -333,7 +348,7 @@ function renderMonth(){
   for(let d=new Date(start);d<=end;d=addDays(d,1)){
     const k=ymd(d), evs=T.filter(t=>occurs(t,k)).sort(sortEv), show=evs.slice(0,3);
     h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건"><span class="d">'+d.getDate()+'</span>'+
-      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+esc(t.title)+'</span>').join('')+(evs.length>3?'<span class="mmore">+'+(evs.length-3)+'</span>':'')+'</button>';
+      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(TEAM&&t.owner!=='dept'?'<span class="who-n">'+esc(nameOf(t.owner))+'</span>':'')+esc(t.title)+'</span>').join('')+(evs.length>3?'<span class="mmore">+'+(evs.length-3)+'</span>':'')+'</button>';
   }
   h+='</div>';
   const sel=T.filter(t=>occurs(t,selDay)).sort(sortEv), sd=parse(selDay), L=lunchOf(selDay);
@@ -350,8 +365,9 @@ function go(n){
   render();
 }
 $('prev').onclick=()=>go(-1); $('next').onclick=()=>go(1);
+$('scope').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b)return;TEAM=b.dataset.s==='team';lsSet('w-team',TEAM?'1':'0');watchAll();render()});
 $('today').onclick=()=>{cursor=FULL?new Date(now.getFullYear(),now.getMonth(),1):new Date(now.getFullYear(),now.getMonth(),now.getDate());selDay=TODAY;$('main').scrollTop=0;render()};
-document.querySelector('.seg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b)return;view=b.dataset.v;lsSet('w-view',view);
+$('vseg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b)return;view=b.dataset.v;lsSet('w-view',view);
   if(view==='month')cursor=new Date(parse(selDay).getFullYear(),parse(selDay).getMonth(),1);else cursor=parse(selDay);render()});
 $('main').addEventListener('click',e=>{
   const ev=e.target.closest('.ev[data-id]'); if(ev){openDetail(ev.dataset.o,ev.dataset.id);return}
