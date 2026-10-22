@@ -105,8 +105,15 @@ ul.tasks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .il-week th.corner span:first-child{position:absolute;right:5px;top:3px}.il-week th.corner span:last-child{position:absolute;left:5px;bottom:3px}
 .il-week th.gname{background:var(--cbg);color:var(--cfg);font-size:15px;font-weight:800;vertical-align:middle;text-align:center;border-left:5px solid var(--cfg)}
 .il-week tr.c-pink td{background:#fff7fa}
-.il-item{padding:3px 2px 6px;cursor:pointer;border-radius:4px}
-.il-item+.il-item{border-top:1px dashed #c9d6e3;padding-top:6px}
+.il-item{padding:3px 3px 4px;cursor:pointer;border-radius:4px}
+.il-d{display:none;margin-top:3px}
+.il-item.open .il-d{display:block}
+.il-item.open{background:#f3f8fd}
+.il-tm{font-family:var(--font-num);font-weight:600;font-size:12px;color:#5c7186}
+.il-who{font-weight:500;color:#3d4f61}
+.il-edit{margin:5px 0 0 12px;font-size:12px;padding:3px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--accent);cursor:pointer}
+.il-hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+.il-item+.il-item{border-top:1px dashed #c9d6e3;padding-top:4px}
 .il-item:hover{background:var(--accent-soft)}
 .il-item:focus-visible{outline:2px solid var(--accent)}
 .il-item.done{opacity:.5}
@@ -322,6 +329,22 @@ ul.big li[class*=" c-"]{border-left-color:var(--cfg)}
 #print-area .mbar-sp{height:calc(1.3em + .3mm)}
 #print-area .mbar .bl.cont{visibility:hidden}
 #print-area .mbar .bl{width:calc(var(--span,1) * 100% + (var(--span,1) - 1) * 2 * var(--br))}
+/* 과 주요일정 표 인쇄 (화면 그대로, A4 가로) */
+#print-area .il-print h1{font-size:15pt;text-align:center;margin:0 0 3mm;letter-spacing:-.01em}
+#print-area .il-scroll{overflow:visible}
+#print-area .il-week{min-width:0;font-size:8.5pt;line-height:1.35}
+#print-area .il-print{width:283mm}
+#print-area .il-week col.c-g{width:19mm}
+#print-area .il-week th.gname{white-space:nowrap;letter-spacing:-.03em}
+#print-area .il-week th,#print-area .il-week td{padding:1.2mm 1.4mm}
+#print-area .il-week thead th{font-size:9.5pt}
+#print-area .il-week th.gname{font-size:10pt}
+#print-area .il-week thead th.today,#print-area .il-week td.today{background:#fff}
+#print-area .il-item{break-inside:avoid}
+#print-area .il-item.open{background:none}
+#print-area .il-edit{display:none}
+#print-area .il-l{font-size:7.5pt}
+#print-area .il-pfoot{text-align:right;font-size:7pt;color:#6b8196;margin-top:1.5mm}
 @media print{
   html,body{background:#fff!important}
   body{padding:0!important;margin:0!important}
@@ -1065,6 +1088,7 @@ function week(){
   $('wk-title').textContent=(m.getMonth()+1)+'.'+m.getDate()+' – '+(e.getMonth()+1)+'.'+e.getDate()+' 주간';
   const days=[...Array(7)].map((_,i)=>ymd(addDays(m,i)));
   $('week').classList.toggle('ilam',viewing===DEPT_ID);
+  const hint=document.querySelector('.week-panel .week-hint'); if(hint)hint.hidden=viewing===DEPT_ID;
   if(viewing===DEPT_ID){$('week').innerHTML=ilamTable(days,T);return}
   // 주간은 여러 날 일정도 날짜마다 카드로 (과장님 일정이 항상 맨 위, 모두 보여 줌)
   $('week').innerHTML=days.map((k,i)=>{const d=parse(k);
@@ -1094,11 +1118,22 @@ function ilamTable(days,T){
         const lines=String(t.note||'').split('\n').filter(x=>x&&!(t.time&&/^시간:\s*\d{1,2}:\d{2}~?$/.test(x)));
         const hasTime=lines.some(x=>/^시간/.test(x));
         const when=isMulti(t)?'기간: '+md(t.date)+(t.time?' '+t.time:'')+' ~ '+md(endOf(t)):t.time&&!hasTime?'시간: '+t.time:'';
-        return '<div class="il-item'+(t.done?' done':'')+'" data-date="'+(ks.includes(t.date)?t.date:ks[0])+'" role="button" tabindex="0"><div class="il-t">○ '+esc(title)+'</div>'+(when?'<div class="il-l">'+esc(when)+'</div>':'')+lines.map(x=>'<div class="il-l">'+esc(x)+'</div>').join('')+'</div>'}).join('')+'</td>';
+        const who=ilWho(t), open=ilOpen.has(t.id), dk=ks.includes(t.date)?t.date:ks[0];
+        return '<div class="il-item'+(t.done?' done':'')+(open?' open':'')+'" data-il="'+esc(t.id)+'" role="button" tabindex="0" aria-expanded="'+open+'">'+
+          '<div class="il-t">○ '+(t.time&&!isMulti(t)?'<span class="il-tm">'+t.time+'</span> ':'')+esc(title)+(who?' <span class="il-who">('+esc(who)+')</span>':'')+(isMulti(t)?' <span class="il-tm">~'+md(endOf(t))+'</span>':'')+'</div>'+
+          '<div class="il-d">'+(when?'<div class="il-l">'+esc(when)+'</div>':'')+lines.map(x=>'<div class="il-l">'+esc(x)+'</div>').join('')+'<button type="button" class="il-edit" data-date="'+dk+'">이 날 일정 열기 · 수정</button></div></div>'}).join('')+'</td>';
     }
     h+='</tr>';
   }
-  return h+'</tbody></table></div>';
+  return h+'</tbody></table></div><p class="il-hint">일정을 누르면 시간·장소·참석 등 자세한 내용이 펼쳐져요. 날짜 머리를 누르면 그날 창이 열려요.</p>';
+}
+// 표에는 이름만 짧게: (이서린) / (이영란, 이희정 외 1명)
+const ilOpen=new Set();
+function ilWho(t){
+  let p=Array.isArray(t.people)&&t.people.length?t.people:[];
+  if(!p.length){const l=String(t.note||'').split('\n').find(x=>/^(출장자|담당):/.test(x));
+    if(l)p=l.replace(/^[^:]+:\s*/,'').split(/[,，、]/).map(x=>x.replace(/\(.*?\)|\s|[*]/g,'')).filter(x=>/^[가-힣]{2,4}$/.test(x))}
+  return p.length>3?p.slice(0,2).join(', ')+' 외 '+(p.length-2)+'명':p.join(', ');
 }
 function wkChip(t,k){
   const who=viewing==='all'&&t.owner!==DEPT_ID?nameOf(t.owner)+' · ':'';
@@ -1168,8 +1203,11 @@ function renderDay(){
     :'<li style="border-left-color:var(--line);color:var(--muted)">이 날은 등록된 일정이 없습니다. 아래에서 바로 추가할 수 있어요.</li>';
   $('d-title').placeholder=viewing==='all'||viewing===me.uid?'이 날짜에 할 일 추가':nameOf(viewing)+' 님 일정에 추가';
 }
-$('week').addEventListener('click',e=>{const c=e.target.closest('[data-date]');if(c)openDay(c.dataset.date)});
-$('week').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const c=e.target.closest('[data-date]');if(c){e.preventDefault();openDay(c.dataset.date)}});
+$('week').addEventListener('click',e=>{
+  const ed=e.target.closest('.il-edit'); if(ed){openDay(ed.dataset.date);return}
+  const it=e.target.closest('[data-il]'); if(it){const id=it.dataset.il;ilOpen.has(id)?ilOpen.delete(id):ilOpen.add(id);it.classList.toggle('open');it.setAttribute('aria-expanded',ilOpen.has(id));return}
+  const c=e.target.closest('[data-date]');if(c)openDay(c.dataset.date)});
+$('week').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const it=e.target.closest('[data-il]');if(it&&e.target===it){e.preventDefault();it.click();return}const c=e.target.closest('[data-date]');if(c){e.preventDefault();openDay(c.dataset.date)}});
 $('day-close').onclick=closeDay;
 $('day-prev').onclick=()=>{editing=null;dayOpen=ymd(addDays(parse(dayOpen),-1));renderDay()};
 $('day-next').onclick=()=>{editing=null;dayOpen=ymd(addDays(parse(dayOpen),1));renderDay()};
@@ -1293,7 +1331,21 @@ function openPrint(kind){
 }
 function closePrint(){$('print-modal').hidden=true}
 $('mo-print').onclick=()=>openPrint('month');
-$('wk-print').onclick=()=>openPrint('week');
+$('wk-print').onclick=()=>{if(viewing===DEPT_ID){printIlam();return}openPrint('week')};
+function printIlam(){
+  const m=addDays(mondayOf(now),weekOffset*7), e=addDays(m,6);
+  const f=d=>d.getFullYear()+'. '+(d.getMonth()+1)+'. '+d.getDate()+'.';
+  $('page-style').textContent='@page{size:297mm 210mm;margin:7mm}';
+  const area=$('print-area'); area.style.removeProperty('--pw');
+  area.innerHTML='<div class="il-print"><h1>주요행사·업무 일람 ['+f(m)+' ~ '+f(e)+']</h1>'+$('week').innerHTML.replace(/<p class="il-hint">[\s\S]*?<\/p>/,'')+'<div class="il-pfoot">'+printedAt()+' · 단단이</div></div>';
+  // A4 한 장에 들어가도록 자동으로 줄임
+  const box=area.firstElementChild; box.style.zoom=''; 
+  Object.assign(area.style,{display:'block',position:'absolute',left:'-9999px',top:'0',width:'283mm'});
+  const mm=box.offsetWidth/283, h=box.scrollHeight/mm; // mm 단위 높이
+  Object.assign(area.style,{display:'',position:'',left:'',top:'',width:''});
+  if(h>194)box.style.zoom=String(Math.max(.45,194/h));
+  setTimeout(()=>{try{window.print()}catch(x){toast('이 브라우저에서는 인쇄 창을 열 수 없습니다')}},80);
+}
 $('pr-close').onclick=closePrint;
 $('print-modal').addEventListener('click',e=>{if(e.target===$('print-modal'))closePrint()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('print-modal').hidden)closePrint()});
