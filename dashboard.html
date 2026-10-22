@@ -91,6 +91,29 @@ ul.tasks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .week .chip{font-size:14px;line-height:1.45;padding:5px 8px}
 .week .mbar{font-size:13px;height:24px;line-height:20px}
 .chip.boss,.mchip.boss{font-weight:700}
+/* 과 주요일정 표 (한글 일람 모양) */
+.week.ilam{display:block}
+.il-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.il-week{width:100%;min-width:900px;border-collapse:collapse;table-layout:fixed;font-size:13px;line-height:1.45;background:#fff}
+.il-week col.c-g{width:78px}
+.il-week th,.il-week td{border:1px solid #9fb3c6;padding:6px 7px;vertical-align:top}
+.il-week thead th{background:#eaf2fa;font-weight:700;text-align:center;font-size:14px;cursor:pointer;white-space:nowrap}
+.il-week thead th .sat{color:#1d5fd1}.il-week thead th .sun{color:#d9480f}
+.il-week thead th.today,.il-week td.today{background:#f1f8ff}
+.il-week thead th.today{background:#d6ebff}
+.il-week th.corner{cursor:default;position:relative;font-size:11px;font-weight:600;color:var(--muted);background:linear-gradient(to top right,#eaf2fa calc(50% - .5px),#9fb3c6 50%,#eaf2fa calc(50% + .5px))}
+.il-week th.corner span:first-child{position:absolute;right:5px;top:3px}.il-week th.corner span:last-child{position:absolute;left:5px;bottom:3px}
+.il-week th.gname{background:var(--cbg);color:var(--cfg);font-size:15px;font-weight:800;vertical-align:middle;text-align:center;border-left:5px solid var(--cfg)}
+.il-week tr.c-pink td{background:#fff7fa}
+.il-item{padding:3px 2px 6px;cursor:pointer;border-radius:4px}
+.il-item+.il-item{border-top:1px dashed #c9d6e3;padding-top:6px}
+.il-item:hover{background:var(--accent-soft)}
+.il-item:focus-visible{outline:2px solid var(--accent)}
+.il-item.done{opacity:.5}
+.il-t{font-weight:700;color:#0b4fa0}
+tr.c-pink .il-t{color:#a01a4c}
+.il-l{color:#2b3a4a;font-size:12.5px;padding-left:12px;text-indent:-0px}
+.il-empty{text-align:center;color:var(--muted);padding:28px}
 /* 과 주요일정 카드: 팀 색 + 이름표 */
 .week .chip.is-dept{border-left:4px solid var(--cfg);background:var(--cbg);color:#1d2b3a}
 .week .chip.is-dept .num{color:var(--cfg);font-weight:700}
@@ -1041,12 +1064,41 @@ function week(){
   $('glegend').innerHTML=gs.map(g=>'<span class="c-'+groupColor(g)+'"><i></i>'+esc(g)+'</span>').join('');
   $('wk-title').textContent=(m.getMonth()+1)+'.'+m.getDate()+' – '+(e.getMonth()+1)+'.'+e.getDate()+' 주간';
   const days=[...Array(7)].map((_,i)=>ymd(addDays(m,i)));
+  $('week').classList.toggle('ilam',viewing===DEPT_ID);
+  if(viewing===DEPT_ID){$('week').innerHTML=ilamTable(days,T);return}
   // 주간은 여러 날 일정도 날짜마다 카드로 (과장님 일정이 항상 맨 위, 모두 보여 줌)
   $('week').innerHTML=days.map((k,i)=>{const d=parse(k);
     const items=T.filter(t=>occurs(t,k)).sort((a,b)=>(rankT(a)-rankT(b))||(isMulti(b)-isMulti(a))||(a.time||'99:99').localeCompare(b.time||'99:99')||a.title.localeCompare(b.title));
     const B={n:items.length,h:''}, show=items, hidden=0;
     return '<div class="day'+(k===TODAY?' today':'')+(i>4?' wknd':'')+'" data-date="'+k+'" role="button" tabindex="0" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+items.length+'건 크게 보기"><div class="dh"><span>'+DOW[d.getDay()]+'</span><b>'+d.getDate()+'</b></div>'+
       show.map(t=>wkChip(t,k)).join('')+'</div>'}).join('');
+}
+/* 과 주요일정: 한글 「주요행사·업무 일람」처럼 담당 × 요일 표 */
+const GROUP_ORDER=['과장','중등장학','중등인사','교육과정','교직단체'];
+function ilamTable(days,T){
+  const D=T.filter(t=>t.owner===DEPT_ID);
+  const cols=[[days[0]],[days[1]],[days[2]],[days[3]],[days[4]],[days[5],days[6]]];
+  // 여러 날 일정은 이번 주에서 처음 보이는 날 칸에만 (한글 일람과 같게)
+  const firstDay=t=>days.find(k=>occurs(t,k));
+  const groups=[...new Set(D.filter(t=>firstDay(t)).map(groupOf).filter(Boolean))].sort((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b,'ko')});
+  const lab=ks=>ks.map(k=>{const d=parse(k);return '<span class="'+(d.getDay()===6?'sat':d.getDay()===0?'sun':'')+'">'+(d.getMonth()+1)+'/'+d.getDate()+'('+DOW[d.getDay()]+')</span>'}).join(' ');
+  let h='<div class="il-scroll"><table class="il-week"><colgroup><col class="c-g">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th class="corner"><span>날짜</span><span>담당</span></th>'+
+    cols.map(ks=>'<th'+(ks.includes(TODAY)?' class="today"':'')+' data-date="'+ks[0]+'">'+lab(ks)+'</th>').join('')+'</tr></thead><tbody>';
+  if(!groups.length)h+='<tr><td colspan="7" class="il-empty">이번 주 과 주요일정이 없어요. 할 일 관리 위 <b>업무 일람 올리기</b>로 한글 파일을 올려 주세요.</td></tr>';
+  for(const g of groups){
+    h+='<tr class="c-'+groupColor(g)+'"><th class="gname">'+esc(g)+'</th>';
+    for(const ks of cols){
+      const its=D.filter(t=>groupOf(t)===g&&ks.includes(firstDay(t))).sort((a,b)=>(a.date<b.date?-1:a.date>b.date?1:0)||(a.time||'99').localeCompare(b.time||'99'));
+      h+='<td'+(ks.includes(TODAY)?' class="today"':'')+'>'+its.map(t=>{
+        const m=String(t.title).match(/^\[[^\]]+\]\s*(.*)$/), title=t.raw||(m?m[1]:t.title);
+        const lines=String(t.note||'').split('\n').filter(x=>x&&!(t.time&&/^시간:\s*\d{1,2}:\d{2}~?$/.test(x)));
+        const hasTime=lines.some(x=>/^시간/.test(x));
+        const when=isMulti(t)?'기간: '+md(t.date)+(t.time?' '+t.time:'')+' ~ '+md(endOf(t)):t.time&&!hasTime?'시간: '+t.time:'';
+        return '<div class="il-item'+(t.done?' done':'')+'" data-date="'+(ks.includes(t.date)?t.date:ks[0])+'" role="button" tabindex="0"><div class="il-t">○ '+esc(title)+'</div>'+(when?'<div class="il-l">'+esc(when)+'</div>':'')+lines.map(x=>'<div class="il-l">'+esc(x)+'</div>').join('')+'</div>'}).join('')+'</td>';
+    }
+    h+='</tr>';
+  }
+  return h+'</tbody></table></div>';
 }
 function wkChip(t,k){
   const who=viewing==='all'&&t.owner!==DEPT_ID?nameOf(t.owner)+' · ':'';
@@ -1608,7 +1660,7 @@ $('il-go').onclick=async()=>{
     for(let i=0;i<go.length;i+=400){
       const b=writeBatch(fs);
       for(const r of go.slice(i,i+400)){const it=r.it;
-        b.set(doc(fs,'users',r.owner,'tasks',ilId(r.owner+'|'+it.date+'|'+it.group+'|'+it.title)),{title:ilTitle(it,r.owner),date:it.date,endDate:it.endDate||'',time:it.time||'',pri:'mid',cat:it.group||'업무',color:/^출장/.test(it.title)?'orange':'',note:it.detail||'',src:'ilam',created:Date.now(),...stamp()},{merge:true});}
+        b.set(doc(fs,'users',r.owner,'tasks',ilId(r.owner+'|'+it.date+'|'+it.group+'|'+it.title)),{title:ilTitle(it,r.owner),raw:it.title,people:it.people||[],date:it.date,endDate:it.endDate||'',time:it.time||'',pri:'mid',cat:it.group||'업무',color:/^출장/.test(it.title)?'orange':'',note:it.detail||'',src:'ilam',created:Date.now(),...stamp()},{merge:true});}
       await b.commit();
     }
     $('il-modal').hidden=true; toast(go.length+'건을 팀 일정에 올렸어요');
