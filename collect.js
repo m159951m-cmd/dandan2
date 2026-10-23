@@ -8,7 +8,9 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gsta
 import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const norm = s => String(s || '').replace(/\s+/g, '');
-const bare = s => norm(s).replace(/\(.*?\)$/, '');          // "홍길동(○○과)" → "홍길동"
+// 이름만 남김: "홍길동(○○과)", "홍길동 장학사", "홍길동님" → "홍길동"
+const TITLES = /(장학관|장학사|교육연구관|교육연구사|연구관|연구사|주무관|사무관|서기관|과장님|과장|팀장|선생님|선생|님)$/;
+const bare = s => { let t = norm(s).replace(/[\(\[（].*?[\)\]）]/g, ''); for (let i = 0; i < 2; i++) t = t.replace(TITLES, ''); return t };
 const pad = n => String(n).padStart(2, '0');
 export const DUE_HOUR = 18;                                 // 마감일 18시를 마감 시각으로 봄
 
@@ -39,7 +41,8 @@ export async function collectJoin(cfg, code) {
 // 내 이름으로 남은 취합 건 계산
 function pending(name) {
   const me = bare(name); if (!me) return [];
-  const mine = n => { const b = bare(n); return b === me || (me.length >= 2 && b.length === me.length + 1 && b.endsWith(me)) };
+  // 같은 사람으로 봄: 똑같은 이름, 또는 성을 빼고 적은 이름("민호" ↔ "정민호")
+  const mine = n => { const b = bare(n); if (!b) return false; return b === me || (me.length >= 2 && b.length === me.length + 1 && b.endsWith(me)) || (b.length >= 2 && me.length === b.length + 1 && me.endsWith(b)) };
   const done = rid => subs.some(s => {
     const files = s.files ? (Array.isArray(s.files) ? s.files : Object.values(s.files)) : [];
     if (files.some(f => f && f.rid === rid && !f.gone && mine(f.who))) return true;

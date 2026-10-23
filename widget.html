@@ -220,6 +220,22 @@ button.f-link{width:100%;font:inherit;font-weight:700;font-size:15px;text-align:
 .big-alert .acts a,.big-alert .acts button{font-size:17px;padding:12px 22px;border-radius:12px;font-weight:700;text-decoration:none;cursor:pointer}
 .big-alert .acts a{background:#1f2933;color:#fff}
 .big-alert .acts button{background:#fff;border:2px solid var(--line);color:var(--fg)}
+.big-alert .acts button.primary{background:#1f2933;border-color:#1f2933;color:#fff}
+/* 일정 10분 전 알림: 파란색 */
+.big-alert.task{background:rgba(10,40,80,.55)}
+.big-alert.task .ba{border-top-color:#1c7ed6}
+.big-alert.task h2{color:#1864ab}
+.big-alert.task li{background:#e7f5ff;display:block}
+.big-alert.task li .when{font-family:var(--num);color:#1864ab;margin-right:10px}
+/* 크게 눈에 띄게: 튀어나오며 등장 · 종이 흔들림 · 테두리 빛 */
+@keyframes ba-pop{0%{transform:scale(.7);opacity:0}55%{transform:scale(1.04);opacity:1}75%{transform:scale(.985)}100%{transform:scale(1)}}
+@keyframes ba-glow{0%,100%{box-shadow:0 30px 80px rgba(0,0,0,.35),0 0 0 0 rgba(255,255,255,.0)}50%{box-shadow:0 30px 80px rgba(0,0,0,.35),0 0 0 14px rgba(255,255,255,.28)}}
+@keyframes ba-ring{0%,60%,100%{transform:rotate(0)}5%{transform:rotate(18deg)}10%{transform:rotate(-16deg)}15%{transform:rotate(12deg)}20%{transform:rotate(-9deg)}25%{transform:rotate(5deg)}30%{transform:rotate(0)}}
+@keyframes ba-dim{from{background-color:rgba(0,0,0,0)}}
+.big-alert{animation:ba-dim 260ms ease-out both}
+.big-alert .ba{animation:ba-pop 560ms cubic-bezier(.2,.9,.3,1.15) both,ba-glow 1.8s ease-in-out 600ms infinite}
+.big-alert .ic{display:inline-block;animation:ba-ring 2.2s ease-in-out 400ms infinite;transform-origin:50% 10%}
+@media (prefers-reduced-motion:reduce){.big-alert,.big-alert .ba,.big-alert .ic{animation:none}}
 
 .f-link{display:flex;align-items:center;gap:10px;margin-top:14px;padding:11px 14px;border-radius:12px;background:#fff;color:#0e5f66;text-decoration:none;font-weight:700;font-size:15px;border:1px solid var(--line)}
 .f-link:hover{border-color:#b9c3cc}
@@ -407,7 +423,7 @@ ready(auth).then(async()=>{
   const qn=(QS.get('name')||'').trim(); let w=savedWho();
   if(qn&&(!w||w.name.replace(/\s/g,'')!==qn.replace(/\s/g,''))){try{const r=await enterByName(fs,qn,{create:false});if(!r.isNew)w=r}catch(e){}}
   if(w)startApp({uid:w.id,name:w.name});else{$('login').hidden=false;$('app').hidden=true;if(qn)$('le').value=qn}}).catch(e=>{$('login').hidden=false;$('lmsg').textContent=whoError(e)});
-function watchAll(){const cutoff=ymd(addDays(new Date(),-120));visible().forEach(o=>{if(subs[o])return;subs[o]=onSnapshot(query(collection(fs,...pathOf(o),'tasks'),where('date','>=',cutoff)),s=>{data[o]=s.docs.map(d=>({id:d.id,...d.data()}));render()})})}
+function watchAll(){const cutoff=ymd(addDays(new Date(),-120));[...new Set([...visible(),me.uid,PK,...(profiles.dept?['dept']:[])])].forEach(o=>{if(subs[o])return;subs[o]=onSnapshot(query(collection(fs,...pathOf(o),'tasks'),where('date','>=',cutoff)),s=>{data[o]=s.docs.map(d=>({id:d.id,...d.data()}));render()})})}
 function watchMenu(k){if(menuSubs[k])return;menuSubs[k]=onSnapshot(doc(fs,'menus',k),s=>{menus[k]=s.exists()?s.data():null;render()},()=>{menus[k]=null})}
 function lunchOf(k){const d=parse(k);const mk=d.getFullYear()+'-'+pad(d.getMonth()+1);watchMenu(mk);const M=menus[mk];if(!M||!M.days)return null;return M.days[String(d.getDate())]||null}
 
@@ -670,7 +686,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-qr]')){closeShe
 let collect={state:collectFb?'loading':'off',items:[]};
 function startCollect(){
   if(!collectFb)return;
-  collectWatch(collectFb,me.name,st=>{collect=st;if(FULL)render();checkAlerts()}).catch(()=>{});
+  collectWatch(collectFb,me.name,st=>{collect={...st,items:(st.items||[]).filter(it=>lsGet('cl-done-'+it.id)!=='1')};if(FULL)render();checkAlerts()}).catch(()=>{});
 }
 function collectHTML(){
   if(collect.state==='off')return '';
@@ -701,14 +717,47 @@ function checkAlerts(){
   const box=document.createElement('div'); box.className='big-alert'+(st==='d1'?' d1':''); box.setAttribute('role','alertdialog'); box.setAttribute('aria-modal','true');
   box.innerHTML='<div class="ba"><div class="ic">'+(st==='h1'?'⏰':'📌')+'</div><h2>'+(st==='h1'?'취합 마감 1시간 전이에요':'내일 마감인 취합이 있어요')+'</h2><p>'+esc(me.name)+' 님이 아직 제출하지 않았어요</p><ul>'+
     list.map(x=>'<li>'+esc(x.it.title)+'<small>'+fmtDue(x.it)+' 마감'+(x.it.owner?' · 담당 '+esc(x.it.owner):'')+'</small></li>').join('')+'</ul><div class="acts">'+
-    (collectUrl?'<a href="'+esc(collectUrl)+'" target="_blank" rel="noopener">자료취합 열기 ↗</a>':'')+'<button type="button">확인</button></div></div>';
+    (collectUrl?'<a href="'+esc(collectUrl)+'" target="_blank" rel="noopener">자료취합 열기 ↗</a>':'')+'<button type="button" data-done>이미 냈어요</button><button type="button" data-ok>확인</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
   const close=()=>{list.forEach(x=>lsSet(ALERT_KEY(x.it,x.st),'1'));window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(checkAlerts,500)};
-  box.querySelector('button').onclick=close; box.querySelector('a')&&box.querySelector('a').addEventListener('click',close);
-  setTimeout(()=>box.querySelector('button').focus(),50);
+  box.querySelector('[data-ok]').onclick=close; box.querySelector('a')&&box.querySelector('a').addEventListener('click',close);
+  box.querySelector('[data-done]').onclick=()=>{list.forEach(x=>lsSet('cl-done-'+x.it.id,'1'));collect={...collect,items:collect.items.filter(it=>lsGet('cl-done-'+it.id)!=='1')};close();if(FULL)render();toast('취합 마감 목록에서 뺐어요')};
+  setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
 }
 setInterval(checkAlerts,60000);
+
+/* 일정 10분 전 큰 알림 (취합 마감 알림처럼 화면 가운데) */
+const TA_KEY=t=>'ta-'+t.owner+'-'+t.id+'-'+t.date+'-'+t.time;
+const myName=()=>norm2(me&&me.name);
+function norm2(x){return String(x||'').replace(/\s+/g,'')}
+function myTimedToday(){
+  const k=ymd(new Date()), out=[];
+  [me.uid,PK].forEach(o=>(data[o]||[]).forEach(t=>{if(!t.done&&t.time&&!isMulti(t)&&t.date===k)out.push({...t,owner:o})}));
+  // 과 주요일정 중 내 이름이 들어 있는 일정도
+  (data.dept||[]).forEach(t=>{if(t.done||!t.time||isMulti(t)||t.date!==k)return;const ppl=(t.people||[]).map(norm2);
+    if(ppl.includes(myName())||norm2(t.title).includes('('+myName()+')'))out.push({...t,owner:'dept'})});
+  return out;
+}
+function checkTaskAlerts(){
+  if(alertOn||!me)return;
+  const n=Date.now(), due=myTimedToday().filter(t=>{const [h,m]=t.time.split(':').map(Number);const at=parse(t.date).setHours(h,m,0,0);t._at=at;
+    return n>=at-10*6e4&&n<at+5*6e4&&lsGet(TA_KEY(t))!=='1'&&lsGet(TA_KEY(t)+'-z')<String(n)}).sort((a,b)=>a._at-b._at);
+  if(!due.length)return;
+  alertOn=true;
+  const mins=t=>{const m=Math.round((t._at-Date.now())/6e4);return m>0?m+'분 후 시작':'지금 시작'};
+  const box=document.createElement('div'); box.className='big-alert task'; box.setAttribute('role','alertdialog'); box.setAttribute('aria-modal','true');
+  box.innerHTML='<div class="ba"><div class="ic"><span class="bell">🔔</span></div><h2>곧 시작하는 일정이 있어요</h2><p>'+esc(me.name)+' 님, 10분 안에 시작해요</p><ul>'+
+    due.map(t=>'<li><span class="when">'+t.time+'</span>'+esc(t.title)+'<small>'+mins(t)+(t.owner===PK?' · 개인 일정':t.owner==='dept'?' · 과 주요일정':' · 팀 일정')+'</small></li>').join('')+'</ul><div class="acts">'+
+    '<button type="button" data-z>5분 뒤 다시</button><button type="button" data-ok class="primary">확인</button></div></div>';
+  document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
+  try{window.top.appAttention&&window.top.appAttention()}catch(e){}
+  const close=()=>{window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkTaskAlerts()},500)};
+  box.querySelector('[data-ok]').onclick=()=>{due.forEach(t=>lsSet(TA_KEY(t),'1'));close()};
+  box.querySelector('[data-z]').onclick=()=>{due.forEach(t=>lsSet(TA_KEY(t)+'-z',String(Date.now()+5*6e4)));close()};
+  setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
+}
+setInterval(checkTaskAlerts,20000); setTimeout(checkTaskAlerts,4000);
 </script>
 </body>
 </html>
