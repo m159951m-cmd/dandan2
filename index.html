@@ -56,12 +56,54 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(-
 .note{text-align:center;font-size:12px;color:var(--muted);margin:0}
 @media (max-width:760px){.menu{grid-template-columns:minmax(0,1fr)}.card{min-height:0}}
 @media (prefers-reduced-motion:reduce){.card{transition:none}}
+
+/* ===== 다듬기: 평평한 바탕, 그림자·색 상자 없이, 제품 표시 ===== */
+:root{--bg:#f4f5f7;--surface:#fff;--line:#e3e6ea;--fg:#16202b;--muted:#56616e;--ink:#1f2933}
+html{background:var(--bg)}
+body{background:var(--bg)!important}
+header h1{font-size:28px;letter-spacing:-.02em}
+.brand{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--fg);margin-bottom:14px}
+.brand .mk{width:26px;height:26px;border-radius:7px;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+.login{box-shadow:none;border-radius:12px}
+.primary{background:var(--ink);border-color:var(--ink)}
+.card{box-shadow:none;border-radius:12px;min-height:200px;border-color:var(--line)}
+.card:hover{box-shadow:none;transform:none;border-color:#cfd5dc;background:#fbfcfd}
+.card .ic{width:auto;height:auto;background:none;border-radius:0;justify-content:flex-start;color:var(--c)}
+.card .no{display:none}
+.card h3{font-size:22px;margin-top:0}
+.card p{color:#3f4a56;font-size:15px}
+.c1{--c:#0e6b72}.c2{--c:#1f7a4f}.c3{--c:#1d5fb8}
+.linkbtn{color:#1d5fb8}
+.more a{background:#fff;border-color:var(--line);color:#3f4a56}
+.more a:hover{color:var(--fg);border-color:#cfd5dc}
+.note{color:#56616e}
+.wrap{min-height:calc(100vh - 88px);justify-content:center}
+.confirm{background:#eef2f6}
+
+/* ===== 움직임 (apple-design): 누른 자리에서 열리고 같은 길로 닫힘, 튕김 없는 감속, 중간에 되돌리기 가능 ===== */
+:root{--ease-out:cubic-bezier(.23,1,.32,1)}
+.m-anim{transition:opacity 220ms var(--ease-out)}
+.m-anim .modal-box,.m-anim .sheet,.m-anim .ba{transition:transform 280ms var(--ease-out),opacity 220ms var(--ease-out)}
+.m-anim.m-enter,.m-anim.m-leave{opacity:0}
+.m-anim.m-enter .modal-box,.m-anim.m-enter .sheet,.m-anim.m-enter .ba{transform:scale(.96);opacity:0}
+.m-anim.m-leave .modal-box,.m-anim.m-leave .sheet,.m-anim.m-leave .ba{transform:scale(.97);opacity:0}
+.m-anim.m-leave,.m-anim.m-leave .modal-box,.m-anim.m-leave .sheet,.m-anim.m-leave .ba{transition-duration:160ms}
+@media (max-width:759px){body:not(.full) .m-anim.m-enter .sheet,body:not(.full) .m-anim.m-leave .sheet{transform:translateY(32px)}}
+.m-pop{transform-origin:top right;transition:transform 200ms var(--ease-out),opacity 160ms var(--ease-out)}
+.m-pop.m-enter,.m-pop.m-leave{transform:scale(.94);opacity:0}
+/* 누르는 순간 바로 반응 (손을 떼기 전에) */
+button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{transform:scale(.97);transition:transform 100ms ease-out}
+@media (prefers-reduced-motion:reduce){
+  .m-anim .modal-box,.m-anim .sheet,.m-anim .ba,.m-pop{transform:none!important}
+  button:active,.f-link:active,.card:active,.cl-it:active{transform:none!important}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
+      <div class="brand"><span class="mk" aria-hidden="true">단</span>단단이</div>
       <h1 id="hello">단단이</h1>
       <div class="date" id="date"></div>
     </div>

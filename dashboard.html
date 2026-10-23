@@ -502,13 +502,103 @@ ul.big li[class*=" c-"]{border-left-color:var(--cfg)}
 .space-sw a[aria-current="page"]{background:var(--accent);color:#fff}
 .space-sw a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .personal-lbl{font-size:13px!important;color:var(--accent)!important;font-weight:600}
+
+/* ===== 다듬기 (앱 화면 규칙): 바탕은 평평하게, 색은 데이터에만, 테두리는 옅게, 그림자 없음 ===== */
+:root{
+  --bg:#f4f5f7; --surface:#ffffff; --line:#e3e6ea; --rule:#eef0f2; --control:#cfd5dc;
+  --fg:#16202b; --muted:#56616e;
+  --accent:#1d6fd6; --accent-soft:#e6f0fc;
+  --hi:#b43a0a; --hi-soft:#fde9de; --mid:#8a5a00; --mid-soft:#fdf1d4; --lo:#1f7a4f; --lo-soft:#dcf3e6;
+  --ink:#1f2933;
+  --font-num:var(--font-body);
+}
+body{background:var(--bg)!important}
+.num,.tl-time,.stat .val,.week-tag,.il-tm,.dday,.chip .num{font-family:var(--font-body)!important;font-variant-numeric:tabular-nums}
+/* 머리: 제품 표시 + 제목 24px, 굵은 파란 줄 대신 옅은 선 */
+header{border-bottom:1px solid var(--line);padding-bottom:14px;align-items:center}
+header h1{font-size:24px;letter-spacing:-.015em}
+header .date{font-size:14px}
+.brand{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:700;color:var(--fg);text-decoration:none;margin-right:6px;letter-spacing:-.01em}
+.brand .mk{width:24px;height:24px;border-radius:6px;background:var(--ink);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.week-tag{background:#e9ecf0;color:var(--fg);font-weight:600;border-radius:6px}
+.space-sw{border-color:var(--control)}
+.space-sw a{color:var(--muted)}
+.space-sw a[aria-current="page"]{background:#e9ecf0;color:var(--fg)}
+/* 사람 고르기: 선택은 무채색 */
+.people button{border-color:var(--line);color:var(--fg)}
+.people button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.viewtabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--ink)}
+/* 판: 그림자 없이 옅은 테두리, 모서리 10px 하나로 */
+section.panel,.brief,.stat{box-shadow:none!important;border-color:var(--line)}
+section.panel{border-radius:10px}
+.brief{border-radius:10px;border-left-width:4px}
+.brief.has-soon{background:var(--surface)!important}
+/* 요약 숫자 4개는 한 판을 선으로 나눠서 */
+.stats{gap:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{border:0!important;border-radius:0!important;border-right:1px solid var(--line)!important;padding:14px 18px}
+.stat:last-child{border-right:0!important}
+.stat .val{font-weight:600;font-size:24px}
+/* 버튼: 주된 동작 하나만 진한 색, 나머지는 무채색 */
+button{border-color:var(--control)}
+button.primary{background:var(--ink);border-color:var(--ink)}
+.tabs button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink)}
+.printbtn,.btn-sm{color:var(--fg)!important;border-color:var(--control)!important}
+.btn-sm.ghost{color:var(--muted)!important}
+.linkish{color:var(--accent)}
+input,select,textarea{background:#fff;border-color:var(--control)}
+.ilam-btn{background:#fff;border:1px dashed var(--control);color:var(--fg)}
+/* 업무 일람 표: 선은 옅게, 머리줄은 한 단계 회색 */
+.il-week th,.il-week td{border-color:#dde2e8}
+.il-week thead th{background:#f3f5f7}
+.il-week thead th.today{background:var(--accent-soft);color:#0d4ea6}
+.il-week th.corner{background:linear-gradient(to top right,#f3f5f7 calc(50% - .5px),#dde2e8 50%,#f3f5f7 calc(50% + .5px))}
+.il-week tr.c-pink td{background:#fffafc}
+.il-t{color:#123e7a}
+.il-l{color:#3a4654}
+.week .day{box-shadow:none}
+.day:hover{box-shadow:none;border-color:var(--control)}
+.day.today{background:var(--accent-soft);border-color:#9cc2f0}
+.il-week thead th .sun{color:#b43a0a}.il-week thead th .sat{color:#1a56b8}
+/* 팀 색 글자는 한 단계 진하게 (4.5:1) */
+.c-sky{--cfg:#0a4c8f}.c-violet{--cfg:#4c2fa8}.c-green{--cfg:#175f38}.c-orange{--cfg:#8a3a05}.c-pink{--cfg:#9a1f4d}.c-yellow{--cfg:#6a4b00}
+/* 휴대폰: 머리줄을 두 줄로 정리 */
+@media (max-width:640px){
+  header{align-items:flex-start}
+  header .who{width:100%;flex-wrap:wrap;row-gap:8px}
+  header .brand{width:100%;margin:0}
+  header .week-tag,header #who{display:none}
+  header .space-sw{flex:1}
+  header .space-sw a{flex:1;text-align:center;padding:6px 8px}
+  .wk-nav{width:100%}
+}
+.cat{color:#0d4ea6}
+/* 창: 떠 있는 것만 그림자 */
+.modal-box{border-radius:12px}
+
+/* ===== 움직임 (apple-design): 누른 자리에서 열리고 같은 길로 닫힘, 튕김 없는 감속, 중간에 되돌리기 가능 ===== */
+:root{--ease-out:cubic-bezier(.23,1,.32,1)}
+.m-anim{transition:opacity 220ms var(--ease-out)}
+.m-anim .modal-box,.m-anim .sheet,.m-anim .ba{transition:transform 280ms var(--ease-out),opacity 220ms var(--ease-out)}
+.m-anim.m-enter,.m-anim.m-leave{opacity:0}
+.m-anim.m-enter .modal-box,.m-anim.m-enter .sheet,.m-anim.m-enter .ba{transform:scale(.96);opacity:0}
+.m-anim.m-leave .modal-box,.m-anim.m-leave .sheet,.m-anim.m-leave .ba{transform:scale(.97);opacity:0}
+.m-anim.m-leave,.m-anim.m-leave .modal-box,.m-anim.m-leave .sheet,.m-anim.m-leave .ba{transition-duration:160ms}
+@media (max-width:759px){body:not(.full) .m-anim.m-enter .sheet,body:not(.full) .m-anim.m-leave .sheet{transform:translateY(32px)}}
+.m-pop{transform-origin:top right;transition:transform 200ms var(--ease-out),opacity 160ms var(--ease-out)}
+.m-pop.m-enter,.m-pop.m-leave{transform:scale(.94);opacity:0}
+/* 누르는 순간 바로 반응 (손을 떼기 전에) */
+button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{transform:scale(.97);transition:transform 100ms ease-out}
+@media (prefers-reduced-motion:reduce){
+  .m-anim .modal-box,.m-anim .sheet,.m-anim .ba,.m-pop{transform:none!important}
+  button:active,.f-link:active,.card:active,.cl-it:active{transform:none!important}
+}
 </style>
 </head>
 <body>
 
 <div class="login" id="login" hidden>
   <div class="box">
-    <h1>나의 업무일정</h1>
+    <h2 style="margin:0;font-size:22px">나의 업무일정</h2>
     <p>이름만 입력하면 들어갈 수 있어요. 이 PC에서는 다음부터 자동으로 들어가요.</p>
     <form id="login-form">
       <input id="login-name" placeholder="이름 (예: 홍길동)" maxlength="20" autocomplete="name" aria-label="이름" required>
@@ -529,7 +619,7 @@ ul.big li[class*=" c-"]{border-left-color:var(--cfg)}
       <h1 id="greet">좋은 하루 보내세요</h1>
       <div class="date" id="today-label"></div>
     </div>
-    <div class="who"><nav class="space-sw" aria-label="대시보드 고르기"><a href="index.html" id="sw-home">처음</a><a href="dashboard.html" id="sw-team">팀</a><a href="dashboard.html?space=personal" id="sw-me">개인</a></nav><span class="week-tag" id="week-tag"></span><span id="who"></span><button type="button" id="logout">로그아웃</button></div>
+    <div class="who"><a class="brand" href="index.html" aria-label="단단이 처음 화면"><span class="mk" aria-hidden="true">단</span>단단이</a><nav class="space-sw" aria-label="대시보드 고르기"><a href="index.html" id="sw-home">처음</a><a href="dashboard.html" id="sw-team">팀</a><a href="dashboard.html?space=personal" id="sw-me">개인</a></nav><span class="week-tag" id="week-tag"></span><span id="who"></span><button type="button" id="logout">로그아웃</button></div>
   </header>
 
   <div class="people-bar">
@@ -749,6 +839,7 @@ ul.big li[class*=" c-"]{border-left-color:var(--cfg)}
 <style id="page-style">@page{size:297mm 210mm;margin:6mm}</style>
 
 
+<script src="motion.js"></script>
 <script type="module">
 import { firebaseConfig } from "./config.js";
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}

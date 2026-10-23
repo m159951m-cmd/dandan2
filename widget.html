@@ -127,7 +127,7 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .c-orange{--evbg:#ffe0c7;--evfg:#97420a;--evdot:#e8590c}
 .c-pink{--evbg:#ffd9e7;--evfg:#9d2251;--evdot:#d6336c}
 .c-yellow{--evbg:#fdedb5;--evfg:#6e5000;--evdot:#e0a800}
-@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.4}}}
+
 /* 큰 화면(바탕화면 프로그램)에서는 알림창을 가운데에 */
 body.full .sheet-wrap{align-items:center;padding:24px}
 body.full .sheet{border-radius:18px;max-width:560px;max-height:86vh;overflow:auto;padding:22px 24px;box-shadow:0 20px 60px rgba(15,35,60,.3)}
@@ -148,18 +148,18 @@ body[data-th=peach]{--bg:#fff0e5;--soft:#ffe0c9;--line:#efd2bc}
 body[data-th=gray]{--bg:#eceff3;--soft:#dde2e8;--line:#cdd4dc}
 body[data-th] .bar{background:var(--bg)}
 /* 오른쪽 자료취합 바로가기 */
-.f-link.dd{background:var(--accent-soft);color:#0d5aa7;border-color:#bcdcf7;margin-top:8px}
-.f-link.dd small{color:#3d6f9e}
-.f-link.dd:hover{background:#d3e9fc}
+.f-link.dd{color:#0d4ea6;margin-top:8px}
+
+
 /* 취합 마감 */
 .cl-list{display:flex;flex-direction:column;gap:6px}
 .cl-it{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:#fff;border:1px solid var(--line);text-decoration:none;color:var(--fg);font-size:14px}
-.cl-it:hover{border-color:#8e6be0}
-.cl-d{flex:none;font-size:12px;font-weight:800;padding:2px 7px;border-radius:999px;background:#ece6fd;color:#5a3bbf;white-space:nowrap}
+.cl-it:hover{border-color:#b9c3cc}
+.cl-d{flex:none;font-size:12px;font-weight:700;padding:2px 7px;border-radius:999px;background:#e9ecf0;color:#3f4a56;white-space:nowrap}
 .cl-d.soon{background:#fff1d6;color:#a35c00}.cl-d.today{background:#ffe0e0;color:#c0262d}.cl-d.over{background:#e9edf1;color:#5c7186}
 .cl-t{flex:1;min-width:0;line-height:1.4}.cl-t small{display:block;color:var(--muted);font-size:12px}
 .cl-form{display:flex;gap:6px}.cl-form input{flex:1;min-width:0;font:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--line);border-radius:8px}
-.cl-form button{font-size:13px;padding:6px 12px;border-radius:8px;background:#5a3bbf;color:#fff;border:0;font-weight:600}
+.cl-form button{font-size:13px;padding:6px 12px;border-radius:8px;background:#1f2933;color:#fff;border:0;font-weight:600}
 .cl-msg{font-size:12px;color:var(--muted);margin:4px 0 0}
 /* 마감 큰 알림 */
 .big-alert{position:fixed;inset:0;z-index:50;background:rgba(80,10,20,.55);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -175,12 +175,12 @@ body[data-th] .bar{background:var(--bg)}
 .big-alert li small{display:block;font-size:14px;font-weight:500;color:var(--muted);margin-top:2px}
 .big-alert .acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
 .big-alert .acts a,.big-alert .acts button{font-size:17px;padding:12px 22px;border-radius:12px;font-weight:700;text-decoration:none;cursor:pointer}
-.big-alert .acts a{background:#5a3bbf;color:#fff}
+.big-alert .acts a{background:#1f2933;color:#fff}
 .big-alert .acts button{background:#fff;border:2px solid var(--line);color:var(--fg)}
-@media (prefers-reduced-motion:no-preference){.big-alert .ba{animation:pop .25s ease-out}@keyframes pop{from{transform:scale(.92);opacity:.3}}}
-.f-link{display:flex;align-items:center;gap:10px;margin-top:14px;padding:11px 14px;border-radius:12px;background:#ece6fd;color:#4a2fb0;text-decoration:none;font-weight:700;font-size:15px;border:1px solid #d8cdfa}
-.f-link:hover{background:#e0d7fc}
-.f-link small{display:block;font-weight:500;font-size:12px;color:#6b5aa8}
+
+.f-link{display:flex;align-items:center;gap:10px;margin-top:14px;padding:11px 14px;border-radius:12px;background:#fff;color:#0e5f66;text-decoration:none;font-weight:700;font-size:15px;border:1px solid var(--line)}
+.f-link:hover{border-color:#b9c3cc}
+.f-link small{display:block;font-weight:500;font-size:12px;color:#56616e}
 .f-link .ar{margin-left:auto;font-size:18px}
 
 /* ===== 전체 화면 모드 (?full=1, 두 번째 모니터·바탕화면용) ===== */
@@ -208,7 +208,7 @@ body.full main{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,24vw
 .f-month .mchip.timed::before{width:8px;height:8px}
 .f-month .mlunch{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:6px;margin-top:auto;flex:none}
 .f-month .mlunch b{color:var(--lo);font-weight:700;margin-right:4px}
-.f-side{display:flex;flex-direction:column;min-height:0;overflow:auto;padding:20px 22px 100px;gap:18px;background:linear-gradient(180deg,var(--soft),var(--bg) 40%)}
+.f-side{display:flex;flex-direction:column;min-height:0;overflow:auto;padding:20px 22px 100px;gap:18px;background:var(--soft)}
 .f-clock .time{font-family:var(--num);font-size:clamp(48px,4.6vw,84px);font-weight:500;line-height:1;letter-spacing:-.02em}
 .f-clock .date{font-size:17px;color:var(--muted);margin-top:6px}
 .f-sec h3{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center}
@@ -227,6 +227,24 @@ body.full main{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,24vw
 .sws-where span{display:block;font-size:13px;color:var(--fg);padding:6px 12px;border:1px solid var(--line);border-radius:999px}
 .sws-where input:checked+span{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
 .sws-where input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ===== 움직임 (apple-design): 누른 자리에서 열리고 같은 길로 닫힘, 튕김 없는 감속, 중간에 되돌리기 가능 ===== */
+:root{--ease-out:cubic-bezier(.23,1,.32,1)}
+.m-anim{transition:opacity 220ms var(--ease-out)}
+.m-anim .modal-box,.m-anim .sheet,.m-anim .ba{transition:transform 280ms var(--ease-out),opacity 220ms var(--ease-out)}
+.m-anim.m-enter,.m-anim.m-leave{opacity:0}
+.m-anim.m-enter .modal-box,.m-anim.m-enter .sheet,.m-anim.m-enter .ba{transform:scale(.96);opacity:0}
+.m-anim.m-leave .modal-box,.m-anim.m-leave .sheet,.m-anim.m-leave .ba{transform:scale(.97);opacity:0}
+.m-anim.m-leave,.m-anim.m-leave .modal-box,.m-anim.m-leave .sheet,.m-anim.m-leave .ba{transition-duration:160ms}
+@media (max-width:759px){body:not(.full) .m-anim.m-enter .sheet,body:not(.full) .m-anim.m-leave .sheet{transform:translateY(32px)}}
+.m-pop{transform-origin:top right;transition:transform 200ms var(--ease-out),opacity 160ms var(--ease-out)}
+.m-pop.m-enter,.m-pop.m-leave{transform:scale(.94);opacity:0}
+/* 누르는 순간 바로 반응 (손을 떼기 전에) */
+button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{transform:scale(.97);transition:transform 100ms ease-out}
+@media (prefers-reduced-motion:reduce){
+  .m-anim .modal-box,.m-anim .sheet,.m-anim .ba,.m-pop{transform:none!important}
+  button:active,.f-link:active,.card:active,.cl-it:active{transform:none!important}
+}
 </style>
 </head>
 <body>
@@ -247,7 +265,7 @@ body.full main{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,24vw
     <h1 id="title"></h1>
     <span class="sp"></span>
     <div class="thwrap"><button type="button" class="icon th-btn" id="th-btn" aria-label="배경 색 바꾸기" title="배경 색 바꾸기" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10" cy="7" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor"/></svg></button>
-      <div class="th-pop" id="th-pop" hidden role="group" aria-label="배경 색"></div></div>
+      <div class="th-pop m-pop" id="th-pop" hidden role="group" aria-label="배경 색"></div></div>
     <div class="seg scope" id="scope" role="group" aria-label="팀 일정 또는 개인 일정">
       <button type="button" data-s="team" aria-pressed="false">팀</button>
       <button type="button" data-s="me" aria-pressed="true">개인</button>
@@ -266,6 +284,7 @@ body.full main{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,24vw
 <div class="sheet-wrap" id="sheet-wrap" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" hidden></div>
 
+<script src="motion.js"></script>
 <script type="module">
 import * as CFG from "./config.js";
 const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = CFG.collectFirebase || null;
@@ -306,7 +325,10 @@ const PK='P';  // 내 개인 일정 (나만 보임)
 const pathOf=o=>o===PK?['personal',me.uid]:['users',o];
 const nameOf=u=>u===PK?'내 개인':(profiles[u]&&profiles[u].name)||(profiles[u]&&profiles[u].email?profiles[u].email.split('@')[0]:'이름 없음');
 const personColor=u=>u===PK?'green':u===(me&&me.uid)?'sky':CKEYS[(hashId(u)%(CKEYS.length-1))+1];
-const colorOf=t=>t.color&&CNAME[t.color]?t.color:(t.owner!==me.uid&&t.owner!==PK?personColor(t.owner):isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'def');
+// 과 주요일정은 단단이 팀 화면과 같은 담당별 색
+const GROUP_COLOR={'과장':'pink','중등장학':'sky','중등인사':'violet','교육과정':'green','교직단체':'orange'};
+const groupOf=t=>{const m=String(t.title||'').match(/^\[([^\]]+)\]/);return t.cat&&t.cat!=='업무'?t.cat:m?m[1]:''};
+const colorOf=t=>t.owner==='dept'&&CNAME[GROUP_COLOR[groupOf(t)]]?GROUP_COLOR[groupOf(t)]:t.color&&CNAME[t.color]?t.color:(t.owner!==me.uid&&t.owner!==PK?personColor(t.owner):isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'def');
 // 팀 월별 계획표: 팀 전원의 팀 일정 (개인 일정은 빼고)
 let TEAM=lsGet('w-team')==='1';
 const visible=()=>TEAM?Object.keys(profiles):shown&&shown.length?shown.filter(u=>profiles[u]||u===me.uid||u===PK):[me.uid,PK];
@@ -376,7 +398,8 @@ function renderFull(){
 }
 function tickClock(){const a=$('f-time');if(!a)return;const n=new Date();a.textContent=pad(n.getHours())+':'+pad(n.getMinutes());$('f-date').textContent=n.getFullYear()+'년 '+(n.getMonth()+1)+'월 '+n.getDate()+'일 '+DOW[n.getDay()]+'요일'}
 if(FULL)setInterval(tickClock,10000);
-const sortEv=(a,b)=>(isMulti(b)-isMulti(a))||(!!a.time-!!b.time)||(a.time||'').localeCompare(b.time||'')||a.title.localeCompare(b.title);
+const rankEv=t=>t.owner==='dept'?(groupOf(t)==='과장'?0:1):2;
+const sortEv=(a,b)=>(rankEv(a)-rankEv(b))||(isMulti(b)-isMulti(a))||(!!a.time-!!b.time)||(a.time||'').localeCompare(b.time||'')||a.title.localeCompare(b.title);
 function evHTML(t,k){
   const c=colorOf(t), who=t.owner!==me.uid?'<span class="who">'+esc(nameOf(t.owner))+'</span>':'';
   const allDay=isMulti(t)||!t.time;
@@ -530,9 +553,9 @@ function checkAlerts(){
   box.innerHTML='<div class="ba"><div class="ic">'+(st==='h1'?'⏰':'📌')+'</div><h2>'+(st==='h1'?'취합 마감 1시간 전이에요':'내일 마감인 취합이 있어요')+'</h2><p>'+esc(me.name)+' 님이 아직 제출하지 않았어요</p><ul>'+
     list.map(x=>'<li>'+esc(x.it.title)+'<small>'+fmtDue(x.it)+' 마감'+(x.it.owner?' · 담당 '+esc(x.it.owner):'')+'</small></li>').join('')+'</ul><div class="acts">'+
     (collectUrl?'<a href="'+esc(collectUrl)+'" target="_blank" rel="noopener">자료취합 열기 ↗</a>':'')+'<button type="button">확인</button></div></div>';
-  document.body.appendChild(box);
+  document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
-  const close=()=>{list.forEach(x=>lsSet(ALERT_KEY(x.it,x.st),'1'));box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(checkAlerts,500)};
+  const close=()=>{list.forEach(x=>lsSet(ALERT_KEY(x.it,x.st),'1'));window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(checkAlerts,500)};
   box.querySelector('button').onclick=close; box.querySelector('a')&&box.querySelector('a').addEventListener('click',close);
   setTimeout(()=>box.querySelector('button').focus(),50);
 }
