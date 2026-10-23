@@ -137,15 +137,25 @@ body.full .sheet{border-radius:18px;max-width:560px;max-height:86vh;overflow:aut
 .th-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:999px;color:var(--muted);background:#fff}
 .th-btn:hover{color:var(--accent);border-color:var(--accent)}
 body.full .th-btn{width:40px;height:40px}
-.th-pop{position:absolute;top:calc(100% + 6px);right:0;z-index:30;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(15,35,60,.18);padding:10px;display:grid;grid-template-columns:repeat(3,auto);gap:8px}
+.th-pop{position:absolute;top:calc(100% + 6px);right:0;z-index:30;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(15,35,60,.18);padding:10px;display:grid;grid-template-columns:repeat(4,auto);gap:6px}
 .th-pop button{white-space:nowrap;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--fg);padding:4px 6px}
-.th-pop i{width:34px;height:34px;border-radius:50%;border:2px solid #d5dde6;display:block}
+.th-pop i{width:30px;height:30px;border-radius:50%;border:2px solid #d5dde6;display:block}
 .th-pop button[aria-pressed=true] i{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 body[data-th=sky]{--bg:#e8f2fe;--soft:#d4e7fb;--line:#c6dbf1}
 body[data-th=mint]{--bg:#e5f6ee;--soft:#cdeedd;--line:#bfe0cf}
 body[data-th=lav]{--bg:#f0ebfd;--soft:#e0d7fa;--line:#d2c8ef}
 body[data-th=peach]{--bg:#fff0e5;--soft:#ffe0c9;--line:#efd2bc}
 body[data-th=gray]{--bg:#eceff3;--soft:#dde2e8;--line:#cdd4dc}
+body[data-th=blue]{--bg:#e3ecfc;--soft:#c9daf8;--line:#b9cbee}
+body[data-th=teal]{--bg:#e2f5f3;--soft:#c6ebe7;--line:#b3dcd7}
+body[data-th=lime]{--bg:#f0f8e2;--soft:#ddf0c2;--line:#cde2b0}
+body[data-th=sage]{--bg:#ecf2ea;--soft:#d7e4d3;--line:#c6d6c1}
+body[data-th=lemon]{--bg:#fffbe2;--soft:#fff2b8;--line:#efe2a6}
+body[data-th=beige]{--bg:#f7f1e6;--soft:#ede2cf;--line:#ddd0ba}
+body[data-th=coral]{--bg:#fff0ec;--soft:#ffd8cf;--line:#f0c6bc}
+body[data-th=pink]{--bg:#fdeef4;--soft:#fad6e4;--line:#ecc4d4}
+body[data-th=rose]{--bg:#f8ecf8;--soft:#ecd4ef;--line:#dcc2e0}
+body[data-th=slate]{--bg:#e6eaf0;--soft:#d0d8e3;--line:#bfc8d5}
 body[data-th] .bar{background:var(--bg)}
 /* 오른쪽 자료취합 바로가기 */
 .f-link.dd{color:#0d4ea6;margin-top:8px}
@@ -278,7 +288,6 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
       <button type="button" data-s="team" aria-pressed="false">팀</button>
       <button type="button" data-s="me" aria-pressed="true">개인</button>
     </div>
-    <button class="today-btn" id="today">오늘</button>
     <div class="seg" id="vseg" role="group" aria-label="보기">
       <button type="button" data-v="agenda" aria-pressed="true">일정</button>
       <button type="button" data-v="month" aria-pressed="false">월</button>
@@ -460,7 +469,7 @@ function go(n){
 }
 $('prev').onclick=()=>go(-1); $('next').onclick=()=>go(1);
 /* 배경 색 고르기 (이 PC에 기억) */
-const THEMES=[['','흰색','#ffffff'],['sky','하늘','#d4e7fb'],['mint','민트','#cdeedd'],['lav','라벤더','#e0d7fa'],['peach','살구','#ffe0c9'],['gray','회색','#dde2e8']];
+const THEMES=[['','흰색','#ffffff'],['sky','하늘','#d4e7fb'],['blue','파랑','#c9daf8'],['teal','청록','#c6ebe7'],['mint','민트','#cdeedd'],['lime','연두','#ddf0c2'],['sage','쑥색','#d7e4d3'],['lemon','레몬','#fff2b8'],['beige','베이지','#ede2cf'],['peach','살구','#ffe0c9'],['coral','산호','#ffd8cf'],['pink','분홍','#fad6e4'],['rose','장미','#ecd4ef'],['lav','라벤더','#e0d7fa'],['gray','회색','#dde2e8'],['slate','먹색','#d0d8e3']];
 function applyTheme(t){if(t)document.body.dataset.th=t;else delete document.body.dataset.th;lsSet('w-theme',t||'')}
 applyTheme(lsGet('w-theme')||'');
 $('th-btn').onclick=e=>{e.stopPropagation();const pop=$('th-pop'),cur=document.body.dataset.th||'';
@@ -469,7 +478,7 @@ $('th-btn').onclick=e=>{e.stopPropagation();const pop=$('th-pop'),cur=document.b
 $('th-pop').addEventListener('click',e=>{const b=e.target.closest('[data-th]');if(!b)return;applyTheme(b.dataset.th);$('th-pop').hidden=true;$('th-btn').setAttribute('aria-expanded','false')});
 document.addEventListener('click',e=>{if(!e.target.closest('.thwrap'))$('th-pop').hidden=true});
 $('scope').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b)return;TEAM=b.dataset.s==='team';lsSet('w-team',TEAM?'1':'0');watchAll();render()});
-$('today').onclick=()=>{cursor=FULL?new Date(now.getFullYear(),now.getMonth(),1):new Date(now.getFullYear(),now.getMonth(),now.getDate());selDay=TODAY;$('main').scrollTop=0;render()};
+if($('today'))$('today').onclick=()=>{cursor=FULL?new Date(now.getFullYear(),now.getMonth(),1):new Date(now.getFullYear(),now.getMonth(),now.getDate());selDay=TODAY;$('main').scrollTop=0;render()};
 $('vseg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b)return;view=b.dataset.v;lsSet('w-view',view);
   if(view==='month')cursor=new Date(parse(selDay).getFullYear(),parse(selDay).getMonth(),1);else cursor=parse(selDay);render()});
 $('main').addEventListener('click',e=>{
