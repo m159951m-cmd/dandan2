@@ -369,7 +369,7 @@ function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout
 /* 상태 */
 let me=null, profiles={}, data={}, subs={}, menus={}, menuSubs={};
 let view=lsGet('w-view')==='month'?'month':'agenda', cursor=new Date(now.getFullYear(),now.getMonth(),now.getDate()), selDay=TODAY, agendaDays=21;
-let shown=null; try{shown=JSON.parse(lsGet('w-cals')||'null')}catch(e){}
+let shown=null; try{shown=JSON.parse(lsGet('w-cals2')||'null')}catch(e){}  // 개인 화면 기본: 내 개인 일정만
 const PK='P';  // 내 개인 일정 (나만 보임)
 const pathOf=o=>o===PK?['personal',me.uid]:['users',o];
 const nameOf=u=>u===PK?'내 개인':(profiles[u]&&profiles[u].name)||(profiles[u]&&profiles[u].email?profiles[u].email.split('@')[0]:'이름 없음');
@@ -380,7 +380,7 @@ const groupOf=t=>{const m=String(t.title||'').match(/^\[([^\]]+)\]/);return t.ca
 const colorOf=t=>t.owner==='dept'&&CNAME[GROUP_COLOR[groupOf(t)]]?GROUP_COLOR[groupOf(t)]:t.color&&CNAME[t.color]?t.color:(t.owner!==me.uid&&t.owner!==PK?personColor(t.owner):isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'def');
 // 팀 월별 계획표: 팀 전원의 팀 일정 (개인 일정은 빼고)
 let TEAM=lsGet('w-team')==='1';
-const visible=()=>TEAM?Object.keys(profiles):shown&&shown.length?shown.filter(u=>profiles[u]||u===me.uid||u===PK):[me.uid,PK];
+const visible=()=>TEAM?Object.keys(profiles):shown&&shown.length?shown.filter(u=>profiles[u]||u===me.uid||u===PK):[PK];
 function allTasks(){return visible().flatMap(o=>(data[o]||[]).map(t=>({...t,owner:o})))}
 
 /* 로그인 */
@@ -568,7 +568,7 @@ function openAdd(k){
     '<input class="big" type="text" name="title" placeholder="제목 추가" required aria-label="제목">'+
     '<div class="row2"><label class="fl">날짜<input type="date" name="date" value="'+k+'" required></label><label class="fl">시간 (비우면 종일)<input type="time" name="time"></label></div>'+
     '<div class="row2"><label class="fl">종료일 · 여러 날일 때만<input type="date" name="end"></label><label class="fl">우선순위<select name="pri"><option value="high">높음</option><option value="mid" selected>보통</option><option value="low">낮음</option></select></label></div>'+
-    '<div class="fl">어디에 저장할까요<div class="sws-where"><label><input type="radio" name="where" value="team"'+(lsGet('w-where')==='P'?'':' checked')+'><span>팀 (동료와 공유)</span></label><label><input type="radio" name="where" value="P"'+(lsGet('w-where')==='P'?' checked':'')+'><span>개인 (나만)</span></label></div></div>'+
+    '<div class="fl">어디에 저장할까요<div class="sws-where"><label><input type="radio" name="where" value="team"'+(TEAM?' checked':'')+'><span>팀 (동료와 공유)</span></label><label><input type="radio" name="where" value="P"'+(TEAM?'':' checked')+'><span>개인 (나만)</span></label></div></div>'+
     '<div class="fl">색'+swatchHTML('')+'</div>'+
     '<div class="acts"><button type="button" class="btn" data-close>취소</button><button type="submit" class="btn primary">저장</button></div></form>','일정 추가');
 }
@@ -587,7 +587,7 @@ $('sheet').addEventListener('submit',async e=>{
     const t={title,date:v.date,endDate:v.end&&v.end>v.date?v.end:'',time:v.time||'',pri:v.pri||'mid',cat:'업무',color:v.col||'',done:false,created:Date.now(),...stamp()};
     closeSheet();
     const tgt=v.where==='P'?PK:me.uid; lsSet('w-where',tgt===PK?'P':'team');
-    try{await setDoc(doc(fs,...pathOf(tgt),'tasks',uid()),t);toast(tgt===PK?'개인 일정에 추가했어요':'팀 일정에 추가했어요');selDay=t.date;if(!visible().includes(tgt)){shown=[...visible(),tgt];lsSet('w-cals',JSON.stringify(shown));watchAll()}}catch(err){toast('저장하지 못했어요')}
+    try{await setDoc(doc(fs,...pathOf(tgt),'tasks',uid()),t);selDay=t.date;toast(visible().includes(tgt)?(tgt===PK?'개인 일정에 추가했어요':'팀 일정에 추가했어요'):(tgt===PK?'개인 일정에 추가했어요 · 개인 화면에서 보여요':'팀 일정에 추가했어요 · 팀 화면에서 보여요'))}catch(err){toast('저장하지 못했어요')}
   }
 });
 const DLONG=k=>{const d=parse(k);return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')'};
@@ -623,8 +623,8 @@ $('cals').onclick=()=>{
     '<p class="meta" style="margin:0">체크한 사람의 일정이 함께 보여요. 동료 일정은 그 사람 색으로 표시돼요.</p>'+(window.qrcode?'<button type="button" class="btn" data-qr style="align-self:flex-start">휴대폰으로 열기 (QR코드)</button>':'')+(window.parent!==window?'<button type="button" class="btn" id="calib" style="align-self:flex-start">화면 맞춤 (가장자리가 잘릴 때)</button>':'')+'<div class="acts"><a class="btn link" href="dashboard.html" target="_blank" rel="noopener">전체 대시보드 열기 ↗</a><button type="button" class="btn primary" data-close>완료</button></div>','캘린더 고르기');
   const cb=$('calib'); if(cb)cb.onclick=()=>{closeSheet();try{window.parent.postMessage({type:'calibrate'},location.origin)}catch(e){}};
   $('sheet').querySelectorAll('.cal-list input').forEach(i=>i.onchange=()=>{
-    shown=[...$('sheet').querySelectorAll('.cal-list input:checked')].map(x=>x.value); if(!shown.length)shown=[me.uid,PK];
-    lsSet('w-cals',JSON.stringify(shown)); watchAll(); render();
+    shown=[...$('sheet').querySelectorAll('.cal-list input:checked')].map(x=>x.value); if(!shown.length)shown=[PK];
+    lsSet('w-cals2',JSON.stringify(shown)); watchAll(); render();
   });
 };
 setInterval(()=>{const n=new Date();if(ymd(n)!==TODAY){now=n;TODAY=ymd(n);render()}},60000);
