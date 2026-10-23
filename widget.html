@@ -151,6 +151,14 @@ body[data-th] .bar{background:var(--bg)}
 .f-link.dd{color:#0d4ea6;margin-top:8px}
 
 
+/* 휴대폰으로 열기 (QR) */
+button.f-link{width:100%;font:inherit;font-weight:700;font-size:15px;text-align:left;cursor:pointer;margin-top:8px;color:#16202b}
+.qr-box{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.qr-box .qr{background:#fff;padding:12px;border-radius:12px;border:1px solid var(--line);line-height:0}
+.qr-box .qr svg{width:min(240px,62vw);height:auto;display:block}
+.qr-box .url{font-size:12px;color:var(--muted);word-break:break-all;max-width:320px}
+.qr-box label{display:flex;gap:8px;align-items:center;font-size:14px}
+.qr-box ol{text-align:left;margin:0;padding-left:20px;font-size:14px;color:#3f4a56;line-height:1.6}
 /* 취합 마감 */
 .cl-list{display:flex;flex-direction:column;gap:6px}
 .cl-it{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:#fff;border:1px solid var(--line);text-decoration:none;color:var(--fg);font-size:14px}
@@ -285,6 +293,7 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
 <div class="toast" id="toast" hidden></div>
 
 <script src="motion.js"></script>
+<script src="qr.js"></script>
 <script type="module">
 import * as CFG from "./config.js";
 const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = CFG.collectFirebase || null;
@@ -383,7 +392,8 @@ function renderFull(){
   const sd=parse(selDay), sel=T.filter(t=>occurs(t,selDay)).sort(sortEv), L=lunchOf(selDay), isT=selDay===TODAY;
   let side='<aside class="f-side"><div class="f-clock"><div class="time" id="f-time"></div><div class="date" id="f-date"></div>'+
     (collectUrl?'<a class="f-link" href="'+esc(collectUrl)+'" target="_blank" rel="noopener"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h10l6 6v10H4z"/><path d="M14 4v6h6"/></svg></span><span>자료취합<small>취합 건 등록 · 파일 모으기</small></span><span class="ar">↗</span></a>':'')+
-    '<a class="f-link dd" href="dashboard.html" target="_blank" rel="noopener"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span>일정입력<small>팀·개인 일정 추가 · 수정 · 업무 일람 올리기</small></span><span class="ar">↗</span></a></div>'+collectHTML();
+    '<a class="f-link dd" href="dashboard.html" target="_blank" rel="noopener"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span>일정입력<small>팀·개인 일정 추가 · 수정 · 업무 일람 올리기</small></span><span class="ar">↗</span></a>'+
+    '<button type="button" class="f-link qr-open" data-qr><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></span><span>휴대폰으로 열기<small>QR코드를 찍으면 이 캘린더가 휴대폰에서 열려요</small></span></button></div>'+collectHTML();
   side+='<div class="f-sec"><h3><span>'+(isT?'오늘':(sd.getMonth()+1)+'월 '+sd.getDate()+'일 ('+DOW[sd.getDay()]+')')+' 일정</span><button type="button" data-add="'+selDay+'">+ 추가</button></h3><div class="ag-list">'+
     (sel.length?sel.map(t=>evHTML(t,selDay)).join(''):'<div class="ag-empty">일정 없음</div>')+'</div></div>';
   if(L&&((L.items&&L.items.length)||L.off))side+='<div class="f-sec"><h3><span>'+(isT?'오늘의 ':'')+'점심</span></h3><div class="f-lunch">'+(L.note?'<span class="note">'+esc(L.note)+'</span><br>':'')+
@@ -508,7 +518,7 @@ function openDetail(o,id){
 $('cals').onclick=()=>{
   const ids=[PK,...Object.keys(profiles).sort((a,b)=>a===me.uid?-1:b===me.uid?1:nameOf(a).localeCompare(nameOf(b),'ko'))], on=visible();
   openSheet('<h2>캘린더</h2><div class="cal-list">'+ids.map(u=>{const c=personColor(u);return '<label class="c-'+c+'" style="--pc:var(--evdot)"><input type="checkbox" value="'+u+'"'+(on.includes(u)?' checked':'')+'> '+esc(nameOf(u))+(u===me.uid?' <span class="me">(나 · 팀)</span>':u===PK?' 일정 <span class="me">(나만 보임)</span>':'')+'</label>'}).join('')+'</div>'+
-    '<p class="meta" style="margin:0">체크한 사람의 일정이 함께 보여요. 동료 일정은 그 사람 색으로 표시돼요.</p>'+(window.parent!==window?'<button type="button" class="btn" id="calib" style="align-self:flex-start">화면 맞춤 (가장자리가 잘릴 때)</button>':'')+'<div class="acts"><a class="btn link" href="dashboard.html" target="_blank" rel="noopener">전체 대시보드 열기 ↗</a><button type="button" class="btn primary" data-close>완료</button></div>','캘린더 고르기');
+    '<p class="meta" style="margin:0">체크한 사람의 일정이 함께 보여요. 동료 일정은 그 사람 색으로 표시돼요.</p>'+(window.qrcode?'<button type="button" class="btn" data-qr style="align-self:flex-start">휴대폰으로 열기 (QR코드)</button>':'')+(window.parent!==window?'<button type="button" class="btn" id="calib" style="align-self:flex-start">화면 맞춤 (가장자리가 잘릴 때)</button>':'')+'<div class="acts"><a class="btn link" href="dashboard.html" target="_blank" rel="noopener">전체 대시보드 열기 ↗</a><button type="button" class="btn primary" data-close>완료</button></div>','캘린더 고르기');
   const cb=$('calib'); if(cb)cb.onclick=()=>{closeSheet();try{window.parent.postMessage({type:'calibrate'},location.origin)}catch(e){}};
   $('sheet').querySelectorAll('.cal-list input').forEach(i=>i.onchange=()=>{
     shown=[...$('sheet').querySelectorAll('.cal-list input:checked')].map(x=>x.value); if(!shown.length)shown=[me.uid,PK];
@@ -516,6 +526,21 @@ $('cals').onclick=()=>{
   });
 };
 setInterval(()=>{const n=new Date();if(ymd(n)!==TODAY){now=n;TODAY=ymd(n);render()}},60000);
+
+/* ---------- 휴대폰으로 열기: QR코드 ---------- */
+function qrSVG(text){const q=qrcode(0,'M');q.addData(text);q.make();return q.createSvgTag({cellSize:4,margin:0,scalable:true})}
+function openQR(){
+  if(!window.qrcode){toast('QR코드를 만들지 못했어요');return}
+  const base=location.href.replace(/[?#].*$/,'').replace(/[^/]*$/,'');
+  const urlFor=withName=>base+'widget.html'+(withName&&me?'?name='+encodeURIComponent(me.name):'');
+  const draw=()=>{const on=$('qr-name').checked,u=urlFor(on);$('qr-img').innerHTML=qrSVG(u);$('qr-url').textContent=u};
+  openSheet('<h2>휴대폰으로 열기</h2><div class="qr-box"><div class="qr" id="qr-img" role="img" aria-label="단단이 캘린더 주소 QR코드"></div>'+
+    '<label><input type="checkbox" id="qr-name" checked> '+esc(me?me.name:'')+' 님으로 바로 들어가기</label><div class="url" id="qr-url"></div>'+
+    '<ol><li>휴대폰 카메라로 QR코드를 비춰요</li><li>뜨는 주소를 눌러 열어요</li><li>메뉴(⋮ 또는 공유) → <b>홈 화면에 추가</b>하면 앱처럼 써요</li></ol></div>'+
+    '<div class="acts"><button type="button" class="btn primary" data-close>닫기</button></div>','휴대폰으로 열기');
+  draw(); $('qr-name').onchange=draw;
+}
+document.addEventListener('click',e=>{if(e.target.closest('[data-qr]')){closeSheet();setTimeout(openQR,closeSheet&&$('sheet-wrap').hidden?0:180)}});
 
 /* ---------- 자료취합 마감 알림 ---------- */
 let collect={state:collectFb?'loading':'off',items:[]};
