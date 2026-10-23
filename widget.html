@@ -106,6 +106,13 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .btn.link{border:0;color:var(--accent)}
 .check{display:flex;align-items:center;gap:8px;font-size:14px}
 .check input{width:18px;height:18px;accent-color:var(--accent)}
+/* 날짜 창 · 일정 수정 */
+.day-list{display:flex;flex-direction:column;gap:4px}
+.day-list .ev{font-size:15px;padding:9px 12px}
+.day-empty{color:var(--muted);font-size:14px;margin:6px 0}
+.sheet .owner{font-size:12.5px;color:var(--muted)}
+.btn.danger{color:#b42318;border-color:#f1c4bf}.btn.danger.ask{background:#b42318;border-color:#b42318;color:#fff}
+.acts .sp{flex:1}
 /* 캘린더 고르기 */
 .cal-list{display:flex;flex-direction:column;gap:2px}
 .cal-list label{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;cursor:pointer}
@@ -335,7 +342,7 @@ if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.inne
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { ready, savedWho, enterByName, whoError } from "./who.js";
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app=initializeApp(firebaseConfig), auth=getAuth(app), fs=getFirestore(app);
 
 const $=id=>document.getElementById(id);
@@ -539,8 +546,8 @@ if($('today'))$('today').onclick=()=>{cursor=FULL?new Date(now.getFullYear(),now
 $('vseg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b)return;view=b.dataset.v;lsSet('w-view',view);
   if(view==='month')cursor=new Date(parse(selDay).getFullYear(),parse(selDay).getMonth(),1);else cursor=parse(selDay);render()});
 $('main').addEventListener('click',e=>{
-  const ev=e.target.closest('.ev[data-id]'); if(ev){openDetail(ev.dataset.o,ev.dataset.id);return}
-  const mc=e.target.closest('[data-day]'); if(mc){selDay=mc.dataset.day;const d=parse(selDay);if(FULL&&(d.getMonth()!==cursor.getMonth()||d.getFullYear()!==cursor.getFullYear()))cursor=new Date(d.getFullYear(),d.getMonth(),1);render();return}
+  const ev=e.target.closest('.ev[data-id]'); if(ev){openEdit(ev.dataset.o,ev.dataset.id);return}
+  const mc=e.target.closest('[data-day]'); if(mc){selDay=mc.dataset.day;const d=parse(selDay);if(FULL&&(d.getMonth()!==cursor.getMonth()||d.getFullYear()!==cursor.getFullYear()))cursor=new Date(d.getFullYear(),d.getMonth(),1);render();if(FULL)openDay(selDay);return}
   const ad=e.target.closest('[data-add]'); if(ad){openAdd(ad.dataset.add);return}
   if(e.target.closest('#more')){agendaDays+=21;renderAgenda()}
 });
@@ -549,7 +556,10 @@ $('fab').onclick=()=>openAdd(selDay>=TODAY?selDay:TODAY);
 /* 아래 창 */
 function openSheet(html,label){$('sheet').innerHTML=html;$('sheet').setAttribute('aria-label',label);$('sheet-wrap').hidden=false;setTimeout(()=>{const f=$('sheet').querySelector('input.big,button.btn.primary,input');if(f)f.focus()},30)}
 function closeSheet(){$('sheet-wrap').hidden=true}
-$('sheet-wrap').addEventListener('click',e=>{if(e.target===$('sheet-wrap')||e.target.closest('[data-close]'))closeSheet()});
+$('sheet-wrap').addEventListener('click',e=>{if(e.target===$('sheet-wrap')||e.target.closest('[data-close]')){closeSheet();return}
+  const ev=e.target.closest('.ev[data-id]');if(ev){openEdit(ev.dataset.o,ev.dataset.id);return}
+  const ad=e.target.closest('[data-add-day]');if(ad){openAdd(ad.dataset.addDay);return}
+  const bk=e.target.closest('[data-back]');if(bk){FULL?openDay(bk.dataset.back):closeSheet()}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet-wrap').hidden)closeSheet()});
 const swatchHTML=cur=>'<div class="sws">'+[['','def'],...CKEYS.map(c=>[c,c])].map(([v,c])=>'<label class="c-'+c+'" title="'+(v?CNAME[v]:'기본')+'"><input type="radio" name="col" value="'+v+'"'+((cur||'')===v?' checked':'')+'><span></span></label>').join('')+'</div>';
 const stamp=()=>({by:me.uid,byName:nameOf(me.uid),updated:Date.now()});
@@ -564,6 +574,14 @@ function openAdd(k){
 }
 $('sheet').addEventListener('submit',async e=>{
   e.preventDefault(); const f=e.target, v=Object.fromEntries(new FormData(f));
+  if(f.id==='edit'){
+    const o=f.dataset.o,id=f.dataset.id,title=(v.title||'').trim(); if(!title||!v.date)return;
+    const u={title,date:v.date,endDate:v.end&&v.end>v.date?v.end:'',time:v.time||'',pri:v.pri||'mid',done:!!v.done,...stamp()};
+    if(o!=='dept')u.color=v.col||'';
+    closeSheet();
+    try{await updateDoc(doc(fs,...pathOf(o),'tasks',id),u);toast('수정했어요');selDay=u.date}catch(err){toast('저장하지 못했어요')}
+    return;
+  }
   if(f.id==='add'){
     const title=(v.title||'').trim(); if(!title)return;
     const t={title,date:v.date,endDate:v.end&&v.end>v.date?v.end:'',time:v.time||'',pri:v.pri||'mid',cat:'업무',color:v.col||'',done:false,created:Date.now(),...stamp()};
@@ -572,13 +590,31 @@ $('sheet').addEventListener('submit',async e=>{
     try{await setDoc(doc(fs,...pathOf(tgt),'tasks',uid()),t);toast(tgt===PK?'개인 일정에 추가했어요':'팀 일정에 추가했어요');selDay=t.date;if(!visible().includes(tgt)){shown=[...visible(),tgt];lsSet('w-cals',JSON.stringify(shown));watchAll()}}catch(err){toast('저장하지 못했어요')}
   }
 });
-function openDetail(o,id){
-  const t=(data[o]||[]).find(x=>x.id===id); if(!t)return; const tt={...t,owner:o}, c=colorOf(tt);
-  const d=parse(t.date), when=isMulti(t)?(d.getMonth()+1)+'월 '+d.getDate()+'일 ~ '+(parse(endOf(t)).getMonth()+1)+'월 '+parse(endOf(t)).getDate()+'일':(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')'+(t.time?' · '+t.time:' · 종일');
-  openSheet('<h2 class="c-'+c+'"><span class="dot"></span>'+esc(t.title)+'</h2><div class="meta"><span>'+when+'</span><span>'+(o===PK?'개인 일정 (나만 보임)':esc(nameOf(o))+' 님 일정')+' · '+esc(t.cat||'업무')+' · 우선순위 '+({high:'높음',mid:'보통',low:'낮음'}[t.pri]||'보통')+'</span>'+((t.files||[]).length?'<span>첨부 '+t.files.length+'개 (대시보드에서 열기)</span>':'')+(t.byName&&t.by!==o?'<span>'+esc(t.byName)+' 님이 마지막 수정</span>':'')+'</div>'+
-    '<label class="check"><input type="checkbox" id="dn"'+(t.done?' checked':'')+'> 완료</label>'+
-    '<div class="acts"><a class="btn link" href="'+(o===PK?'dashboard.html?space=personal':'dashboard.html')+'" target="_blank" rel="noopener">대시보드에서 수정</a><button type="button" class="btn primary" data-close>닫기</button></div>','일정 상세');
-  $('dn').onchange=async e=>{try{await updateDoc(doc(fs,...pathOf(o),'tasks',id),{done:e.target.checked,...stamp()});toast(e.target.checked?'완료로 표시했어요':'완료를 취소했어요')}catch(err){toast('저장하지 못했어요')}};
+const DLONG=k=>{const d=parse(k);return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')'};
+// 날짜를 누르면: 그날 일정 목록 → 눌러서 수정, 아래에서 바로 추가
+function openDay(k){
+  const evs=allTasks().filter(t=>occurs(t,k)).sort(sortEv);
+  openSheet('<h2>'+DLONG(k)+(k===TODAY?' <span class="owner">오늘</span>':'')+'</h2>'+
+    (evs.length?'<div class="day-list">'+evs.map(t=>evHTML(t,k)).join('')+'</div><p class="meta" style="margin:0">일정을 누르면 수정할 수 있어요.</p>':'<p class="day-empty">이 날은 일정이 없어요.</p>')+
+    '<div class="acts"><button type="button" class="btn" data-close>닫기</button><button type="button" class="btn primary" data-add-day="'+k+'">+ 이 날 일정 추가</button></div>','날짜 일정');
+}
+function openEdit(o,id){
+  const t=(data[o]||[]).find(x=>x.id===id); if(!t)return;
+  const pri=t.pri||'mid';
+  openSheet('<h2 class="c-'+colorOf({...t,owner:o})+'"><span class="dot"></span>일정 수정</h2>'+
+    '<p class="owner" style="margin:0">'+(o===PK?'개인 일정 (나만 보임)':o==='dept'?'과 주요일정':o===me.uid?'내 팀 일정 (동료와 공유)':esc(nameOf(o))+' 님 일정')+(t.byName&&t.by!==o&&o!==PK?' · 마지막 수정 '+esc(t.byName):'')+'</p>'+
+    '<form id="edit" class="fl" data-o="'+o+'" data-id="'+id+'" style="gap:10px;font-size:14px;color:var(--fg)">'+
+    '<input class="big" type="text" name="title" value="'+esc(t.title)+'" required aria-label="제목">'+
+    '<div class="row2"><label class="fl">날짜<input type="date" name="date" value="'+esc(t.date)+'" required></label><label class="fl">시간 (비우면 종일)<input type="time" name="time" value="'+esc(t.time||'')+'"></label></div>'+
+    '<div class="row2"><label class="fl">종료일 · 여러 날일 때만<input type="date" name="end" value="'+esc(t.endDate||'')+'"></label><label class="fl">우선순위<select name="pri">'+[['high','높음'],['mid','보통'],['low','낮음']].map(([v,n])=>'<option value="'+v+'"'+(v===pri?' selected':'')+'>'+n+'</option>').join('')+'</select></label></div>'+
+    (o==='dept'?'':'<div class="fl">색'+swatchHTML(t.color||'')+'</div>')+
+    '<label class="check"><input type="checkbox" name="done"'+(t.done?' checked':'')+'> 완료</label>'+
+    ((t.files||[]).length?'<p class="meta" style="margin:0">첨부 '+t.files.length+'개는 <a href="'+(o===PK?'dashboard.html?space=personal':'dashboard.html')+'" target="_blank" rel="noopener">단단이</a>에서 열 수 있어요.</p>':'')+
+    '<div class="acts"><button type="button" class="btn danger" id="del">삭제</button><span class="sp"></span><button type="button" class="btn" data-back="'+esc(t.date)+'">취소</button><button type="submit" class="btn primary">저장</button></div></form>','일정 수정');
+  let ask=false,tm=0;const del=$('del');
+  del.onclick=async()=>{
+    if(!ask){ask=true;del.classList.add('ask');del.textContent='한 번 더 누르면 삭제';clearTimeout(tm);tm=setTimeout(()=>{ask=false;del.classList.remove('ask');del.textContent='삭제'},3500);return}
+    closeSheet();try{await deleteDoc(doc(fs,...pathOf(o),'tasks',id));toast('삭제했어요')}catch(err){toast('삭제하지 못했어요')}};
 }
 /* 캘린더 고르기 (구글 캘린더의 '내 캘린더'처럼) */
 $('cals').onclick=()=>{
