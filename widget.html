@@ -417,7 +417,7 @@ function renderFull(){
   for(let d=new Date(start);d<=end;d=addDays(d,1)){
     const k=ymd(d), evs=T.filter(t=>occurs(t,k)).sort(sortEv), show=evs.slice(0,6), L=lunchOf(k);
     h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건"><span class="d">'+d.getDate()+'</span>'+
-      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(!isMulti(t)&&t.time?'<span class="tm">'+t.time+'</span>':'')+(TEAM?(t.owner==='dept'?'':'<span class="who-n">'+esc(nameOf(t.owner))+'</span>')+esc(t.title):esc((t.owner!==me.uid?nameOf(t.owner)+' · ':'')+t.title))+'</span>').join('')+
+      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(!isMulti(t)&&t.time?'<span class="tm">'+t.time+'</span>':'')+(TEAM?(t.owner==='dept'||t.owner===PK?'':'<span class="who-n">'+esc(nameOf(t.owner))+'</span>')+esc(t.title):esc((t.owner!==me.uid&&t.owner!==PK?nameOf(t.owner)+' · ':'')+t.title))+'</span>').join('')+
       (evs.length>6?'<span class="mmore">+'+(evs.length-6)+'건</span>':'')+
       (d.getMonth()===cursor.getMonth()&&L&&L.items&&L.items.length?'<span class="mlunch"><b>점심</b>'+esc(L.items.slice(0,2).join(' · '))+'</span>':d.getMonth()===cursor.getMonth()&&L&&L.off==='외식의 날'?'<span class="mlunch"><b>외식의 날</b></span>':'')+'</button>';
   }
@@ -444,7 +444,7 @@ if(FULL)setInterval(tickClock,10000);
 const rankEv=t=>t.owner==='dept'?(groupOf(t)==='과장'?0:1):2;
 const sortEv=(a,b)=>(rankEv(a)-rankEv(b))||(isMulti(b)-isMulti(a))||(!!a.time-!!b.time)||(a.time||'').localeCompare(b.time||'')||a.title.localeCompare(b.title);
 function evHTML(t,k){
-  const c=colorOf(t), who=t.owner!==me.uid?'<span class="who">'+esc(nameOf(t.owner))+'</span>':'';
+  const c=colorOf(t), who=t.owner!==me.uid&&t.owner!==PK?'<span class="who">'+esc(nameOf(t.owner))+'</span>':'';
   const allDay=isMulti(t)||!t.time;
   const span=isMulti(t)?' <span class="tm">('+((parse(k)-parse(t.date))/864e5+1)+'/'+((parse(endOf(t))-parse(t.date))/864e5+1)+'일)</span>':'';
   return '<button type="button" class="ev c-'+c+(allDay?'':' timed')+(t.done?' done':'')+'" data-o="'+t.owner+'" data-id="'+t.id+'">'+(allDay?'':'<span class="tm">'+t.time+'</span>')+'<span class="t">'+esc(t.title)+'</span>'+span+who+'</button>';
@@ -475,7 +475,7 @@ function renderMonth(){
   for(let d=new Date(start);d<=end;d=addDays(d,1)){
     const k=ymd(d), evs=T.filter(t=>occurs(t,k)).sort(sortEv), show=evs.slice(0,3);
     h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건"><span class="d">'+d.getDate()+'</span>'+
-      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(TEAM&&t.owner!=='dept'?'<span class="who-n">'+esc(nameOf(t.owner))+'</span>':'')+esc(t.title)+'</span>').join('')+(evs.length>3?'<span class="mmore">+'+(evs.length-3)+'</span>':'')+'</button>';
+      show.map(t=>'<span class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(TEAM&&t.owner!=='dept'&&t.owner!==PK?'<span class="who-n">'+esc(nameOf(t.owner))+'</span>':'')+esc(t.title)+'</span>').join('')+(evs.length>3?'<span class="mmore">+'+(evs.length-3)+'</span>':'')+'</button>';
   }
   h+='</div>';
   const sel=T.filter(t=>occurs(t,selDay)).sort(sortEv), sd=parse(selDay), L=lunchOf(selDay);
