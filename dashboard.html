@@ -810,7 +810,7 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="kw-title" style="max-width:480px">
     <div class="modal-head"><h3 id="kw-title">뉴스 키워드</h3><button type="button" id="kw-close" aria-label="닫기">✕</button></div>
     <form id="kw-form" style="display:flex;flex-direction:column;gap:10px">
-      <p class="muted-note">쉼표로 나눠 최대 12개까지 넣어요. 나에게만 적용되고(카톡 뉴스도), 새 키워드는 다음 날 아침 9시 뉴스부터 반영돼요.</p>
+      <p class="muted-note">쉼표로 나눠 최대 12개까지 넣어요. 나에게만 적용되고(카톡 뉴스도), 새 키워드는 다음 날 아침 7시 뉴스부터 반영돼요.</p>
       <textarea id="kw-input" rows="4" aria-label="키워드"></textarea>
       <div class="acts" style="display:flex;justify-content:space-between;gap:8px"><button type="button" id="kw-reset">기본값으로</button><button type="submit" class="primary">저장</button></div>
     </form>
@@ -1853,11 +1853,11 @@ const newsTime=ms=>{const d=new Date(ms),t=pad(d.getHours())+':'+pad(d.getMinute
 function renderNews(){
   const el=$('news-list'); if(!el)return;
   if(newsDoc===undefined){el.innerHTML='<li class="empty">불러오는 중…</li>';return}
-  if(!newsDoc){el.innerHTML='<li class="empty">아직 모은 뉴스가 없어요. 평일 아침 9시 10분쯤 자동으로 모여요.</li>';$('news-sub').textContent='';$('news-more').hidden=true;return}
+  if(!newsDoc){el.innerHTML='<li class="empty">아직 모은 뉴스가 없어요. 평일 아침 7시쯤 자동으로 모여요.</li>';$('news-sub').textContent='';$('news-more').hidden=true;return}
   // 내 키워드에 맞는 기사만 (키워드 표시가 없는 예전 기사는 그대로 보여 줌)
   const items=(newsDoc.items||[]).filter(it=>!it.kw||!it.kw.length||it.kw.some(k=>newsKw.includes(k))).map(it=>({...it,kw:(it.kw||[]).filter(k=>newsKw.includes(k))}));
   $('news-sub').textContent=(newsOld?'최근 · ':'')+(newsDoc.label||'')+' · '+items.length+'건';
-  if(!items.length){el.innerHTML='<li class="empty">전날 9시부터 오늘 9시까지 키워드에 맞는 기사가 없었어요.</li>';$('news-more').hidden=true;return}
+  if(!items.length){el.innerHTML='<li class="empty">전날 7시부터 오늘 7시까지 키워드에 맞는 기사가 없었어요.</li>';$('news-more').hidden=true;return}
   const show=newsAll?items:items.slice(0,6);
   el.innerHTML=show.map(it=>'<li><a href="'+esc(it.link)+'" target="_blank" rel="noopener">'+esc(it.title)+'</a><div class="nmeta"><span>'+esc(it.source||'')+'</span><span class="num">'+newsTime(it.pub)+'</span>'+(it.kw||[]).map(k=>'<span class="nkw">'+esc(k)+'</span>').join('')+'</div></li>').join('');
   $('news-more').hidden=items.length<=6; $('news-more').textContent=newsAll?'접기':'뉴스 '+(items.length-6)+'건 더 보기';
