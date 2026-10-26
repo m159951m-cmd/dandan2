@@ -91,10 +91,10 @@ export function calc(t) {
   const mc = mealCount(t), mealLeft = Math.max(0, mc.n - num(t.mealsGiven));
   const mealAmt = t.mealManual ? num(t.mealAmt) : mealMoney(mealLeft);
   const fareSum = FUEL_ONLY ? 0 : (t.fares || []).filter(f => f.mode !== '자차').reduce((a, f) => a + num(f.amt), 0);
-  const fuel = t.fuel && t.fuel.on ? (t.fuel.manual ? num(t.fuel.amt) : fuelAmt(num(t.fuel.km), num(t.fuel.price), num(t.fuel.eff) || (FUEL[t.fuel.type] || {}).eff)) : 0;
+  const fuel = !t.rider && t.fuel && t.fuel.on ? (t.fuel.manual ? num(t.fuel.amt) : fuelAmt(num(t.fuel.km), num(t.fuel.price), num(t.fuel.eff) || (FUEL[t.fuel.type] || {}).eff)) : 0;
   const lodging = num(t.lodging && t.lodging.actual);
   const toll = FUEL_ONLY ? 0 : num(t.toll), cut = num(t.deduct);
-  return { days, meals: mc.n, mealLeft, dayAmt, mealAmt, fareSum, fuel, lodging, toll, cut, total: dayAmt + mealAmt + fareSum + fuel + lodging + toll - cut };
+  return { rider: !!t.rider, days, meals: mc.n, mealLeft, dayAmt, mealAmt, fareSum, fuel, lodging, toll, cut, total: dayAmt + mealAmt + fareSum + fuel + lodging + toll - cut };
 }
 
 export function initTravel(ctx) { C = ctx }
@@ -154,7 +154,7 @@ const I = (n, label, v, extra = '') => '<label class="fl">' + label + '<input na
 function renderForm() {
   const f = document.getElementById('tv-form'); if (!f) return; const t = cur, c = calc(t);
   const fuelOpts = Object.entries(FUEL).map(([k, v]) => '<option value="' + k + '"' + (t.fuel.type === k ? ' selected' : '') + '>' + v.n + '</option>').join('');
-  f.innerHTML = '<h3>' + (editId ? '정산서 수정' : '여비 정산서 작성') + ' <small class="tv-sub">국내여비 정산 신청서(관외 출장)</small></h3>' +
+  f.innerHTML = '<div class="tv-head"><h3>' + (editId ? '정산서 수정' : '여비 정산서 작성') + ' <small class="tv-sub">국내여비 정산 신청서(관외 출장)</small></h3><label class="check tv-rider"><input type="checkbox" name="rider"' + (t.rider ? ' checked' : '') + '> 동승자로 갔어요</label></div>' +
     '<fieldset><legend>신청인</legend><div class="row3">' + I('name', '성명', t.name, 'required') + I('rank', '직급(직위)', t.rank, 'placeholder="예: 장학사"') + I('dept', '소속', t.dept) + '</div></fieldset>' +
     '<fieldset><legend>출장 일정</legend><div class="row3">' + I('start', '출장 시작일', t.start, 'type="date" required') + I('end', '끝나는 날 (하루면 비움)', t.end, 'type="date"') + I('time', '출장 시간', t.time, 'placeholder="09:00~18:00"') + '</div>' +
     '<div class="row3">' + I('place', '출장지 (장소)', t.place, 'required placeholder="예: 경주 한화리조트"') + I('city', '출장 지역 (시·군)', t.city, 'placeholder="예: 경주"') + I('from', '출발지 (근무지·거주지)', t.from) + '</div>' +
@@ -174,9 +174,13 @@ function renderForm() {
       '<p class="meta tv-hint" id="tv-fsrc">' + fuelNote(t) + '</p>' : (FUEL_ONLY ? '' : '<div class="row3">' + I('toll', '통행료', t.toll, 'inputmode="numeric"') + '</div>')) + '</fieldset>' +
     '<fieldset><legend>증빙 서류 (PDF · 사진)</legend><div class="tv-files">' + filesHTML() + '</div><label class="btn-x tv-up">+ 파일 붙이기<input type="file" id="tv-fin" accept="application/pdf,image/*" multiple hidden></label><p class="meta tv-hint">영수증 · 교통비 증빙 등을 붙이면 정산서 다음 장에 출력돼요. PDF는 쪽마다 사진으로 바뀌어요 (최대 10쪽).</p></fieldset>' +
     '<fieldset><legend>기타</legend><div class="row3">' + I('deduct', '공제', t.deduct, 'inputmode="numeric"') + I('scope', '관내/관외', t.scope) + I('applyDate', '신청일', t.applyDate, 'type="date"') + '</div>' + I('note', '비고', t.note, 'placeholder="예: 동승, 1식 제공"') + '</fieldset>' +
-    '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (FUEL_ONLY ? '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>' : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>' +
+    '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (c.rider ? '' : FUEL_ONLY ? '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>' : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>' +
     '<div class="tv-sign"><div class="tv-sign-box">' + (sign ? '<img src="' + sign + '" alt="내 서명">' : '<span>아직 서명이 없어요</span>') + '</div><button type="button" class="btn-x" data-tv-sign>' + (sign ? '서명 다시 그리기' : '서명 그리기') + '</button><small>한 번 그리면 다음부터 자동으로 들어가요.</small></div>' +
     '<div class="acts">' + (editId ? '<button type="button" class="btn" data-tv-new>새로 작성</button>' : '') + '<button type="submit" class="btn primary">' + (editId ? '수정 저장' : '서명하고 제출') + '</button></div>';
+  if (t.rider) {   // 동승: 일비 · 식비 · 숙박비만
+    const fs = [...f.querySelectorAll('fieldset')].filter(x => /^(운임|자가용)/.test((x.querySelector('legend') || {}).textContent || ''));
+    fs.forEach((x, i) => { if (i) x.remove(); else x.outerHTML = '<fieldset><legend>운임</legend><p class="meta tv-hint">동승자로 가서 운임(연료비)은 받지 않아요. 일비 · 식비 · 숙박비만 적으면 돼요. 정산서 운임 칸에는 <b>동승</b>으로 적혀요.</p></fieldset>' });
+  }
   f.querySelector('#tv-fin').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = '' });
   if (t.fuel.on && !num(t.fuel.price)) refreshPrice();
 }
@@ -205,7 +209,7 @@ async function refreshPrice() {
 function read() {
   const f = document.getElementById('tv-form'); if (!f) return; const t = cur, v = n => { const e = f.querySelector('[name=' + n + ']'); return e ? (e.type === 'checkbox' ? e.checked : e.value) : undefined };
   ['name', 'rank', 'dept', 'start', 'end', 'time', 'place', 'city', 'from', 'purpose', 'deduct', 'scope', 'applyDate', 'note', 'toll'].forEach(k => { const x = v(k); if (x !== undefined) t[k] = typeof x === 'string' ? x.trim() : x });
-  t.govCar = !!v('govCar'); t.mealsGiven = num(v('mealsGiven'));
+  t.govCar = !!v('govCar'); t.rider = !!v('rider'); t.mealsGiven = num(v('mealsGiven'));
   t.lodging = { cap: v('lcap') || '', actual: v('lact') || '', reason: (v('lrsn') || '').trim() };
   if (v('km') !== undefined) { t.fuel.km = v('km'); t.fuel.type = v('ftype'); t.fuel.eff = v('feff') }
   f.querySelectorAll('[data-fare]').forEach(e => { const r = t.fares[+e.dataset.fare]; if (r) r[e.dataset.k] = e.value });
@@ -216,7 +220,7 @@ function updateTotals() {
   set('dayAmt', c.dayAmt); set('mealAmt', c.mealAmt); set('famt', c.fuel);
   const mh = document.getElementById('tv-mealh'); if (mh) mh.innerHTML = mealHint(cur, c);
   const mg = f.querySelector('[name=mealsGiven]'); if (mg) { mg.max = c.meals; const lb = mg.closest('label'); if (lb && lb.firstChild && lb.firstChild.nodeType === 3) lb.firstChild.textContent = '식사 제공받은 횟수 (전체 ' + c.meals + '끼 중)' }
-  const box = f.querySelector('.tv-total'); if (box) box.outerHTML = '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (FUEL_ONLY ? '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>' : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>';
+  const box = f.querySelector('.tv-total'); if (box) box.outerHTML = '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (c.rider ? '' : FUEL_ONLY ? '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>' : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>';
 }
 function onInput(e) {
   if (!e.target.closest('#tv-form')) return;
@@ -233,6 +237,7 @@ function onChange(e) {
   if (n === 'mealsGiven') cur.mealManual = false;
   if (n === 'govCar' || n === 'start' || n === 'end') cur.dayManual = false;
   if (n === 'time' || n === 'start' || n === 'end') cur.mealManual = false;
+  if (n === 'rider') { if (cur.rider) cur.fuel.on = false; renderForm(); return }
   if (n === 'fon') { cur.fuel.on = e.target.checked; renderForm(); return }
   if (n === 'ftype') { cur.fuel.eff = ''; cur.fuel.priceManual = false; ls.set('tv-fuel', e.target.value); renderForm(); return }
   if (n === 'start' && cur.fuel.on && !cur.fuel.priceManual) refreshPrice();
@@ -471,7 +476,7 @@ const COLS = ['순', '출장일', '출장시간', '출장자', '출발', '출장
 const WIDTH = [3.6, 17.1, 15.3, 11.5, 6.9, 51.9, 11.9, 8.4, 12.6, 10.4, 10.8, 10.8, 12.6, 12.9, 10.5, 5.9, 12.5, 6.9, 6.1, 52.9];
 function rowOf(t, i) {
   const c = calc(t), multi = t.end && t.end > t.start;
-  const notes = [t.govCar ? '관용차량' : '', num(t.mealsGiven) ? num(t.mealsGiven) + '식 제공' : '', t.note || ''].filter(Boolean).join(', ');
+  const notes = [t.rider ? '동승' : '', t.govCar ? '관용차량' : '', num(t.mealsGiven) ? num(t.mealsGiven) + '식 제공' : '', t.note || ''].filter(Boolean).join(', ');
   const [yy, mm, dd] = t.start.split('-').map(Number);
   return [i, multi ? t.start + '~' + (t.end.slice(0, 7) === t.start.slice(0, 7) ? t.end.slice(8) : t.end.slice(5)) : new Date(Date.UTC(yy, mm - 1, dd)), t.time || '', t.name, t.from || '', t.place || '', t.city || '',
     t.fuel && t.fuel.on ? num(t.fuel.km) || null : null, t.fuel && t.fuel.on ? (FUEL[t.fuel.type] || {}).n : null, c.dayAmt, c.mealAmt, c.fuel || null, c.toll || null, c.lodging || null, c.fareSum || null, c.cut || null, null, null, t.scope || '관외', notes || null];
@@ -554,6 +559,7 @@ function picXML(binId, W, H) {
 function frag(docx, xml) { const d = new DOMParser().parseFromString('<w ' + NSDECL + '>' + xml + '</w>', 'application/xml'); return docx.importNode(d.documentElement.firstElementChild, true) }
 const fareRows = t => {
   const L = FUEL_ONLY ? [] : (t.fares || []).filter(f => f.date || f.mode || f.from || f.to).map(f => ({ ...f }));
+  if (t.rider) return [{ date: t.start, mode: '동승', from: t.from || '', to: t.city || t.place || '', grade: '', amt: '' }, { date: t.end || t.start, mode: '동승', from: t.city || t.place || '', to: t.from || '', grade: '', amt: '' }];
   if (t.fuel && t.fuel.on && !L.some(f => f.mode === '자차')) {
     L.unshift({ date: t.start, mode: '자차', from: t.from || '', to: t.city || t.place || '', grade: '', amt: '' }, { date: t.end || t.start, mode: '자차', from: t.city || t.place || '', to: t.from || '', grade: '', amt: '' });
   }
