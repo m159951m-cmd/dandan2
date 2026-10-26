@@ -58,8 +58,10 @@ const pad = n => String(n).padStart(2, '0');
 const firstTime = s => { const m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? pad(m[1]) + ':' + m[2] : '' };
 const KEYS = ['시간', '기간', '장소', '내용', '참석', '담당', '출장자', '대상', '일시'];
 function kv(line) {
-  const m = line.replace(/^\s*[*※-]?\s*/, '').match(/^([가-힣 ]{1,6}?)\s*[:：]\s*(.*)$/);
-  if (!m) return null; const k = m[1].replace(/\s/g, '');
+  // "시간(기간): 11/3(화) ~ 11/5(목)" 처럼 (기간)이 붙은 칸은 기간으로 봄
+  const m = line.replace(/^\s*[*※-]?\s*/, '').match(/^([가-힣 ]{1,6}?)\s*(\(\s*기간\s*\))?\s*[:：]\s*(.*)$/);
+  if (!m) return null; const k = m[2] ? '기간' : m[1].replace(/\s/g, '');
+  m[2] = m[3];
   return KEYS.includes(k) ? [k, m[2].trim()] : null;
 }
 const people = s => String(s || '').split(/[,，、·\/]|\s및\s|\s외\s/).map(x => x.replace(/\(.*?\)|[*]|\s|수석교사|교사|장학사|장학관|주무관|회장|외.*$|\d+명/g, '').trim()).filter(x => /^[가-힣]{2,4}$/.test(x));

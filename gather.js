@@ -44,16 +44,19 @@ function sorted(list, k) {
   return L.sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || '') || a.created - b.created);
 }
 // 주간 업무 일람 칸에 들어갈 줄들
+// 여러 날이면 "11/3(화) ~ 11/5(목)"
+const ilamRange = it => it.end && it.end > it.date ? mdd(it.date) + ' ~ ' + mdd(it.end) : '';
 function ilamLines(it) {
-  const L = [];
+  const L = [], rng = ilamRange(it);
   if (it.type === 'trip') {
     L.push('○ ' + (it.title || '출장 및 기타 복무 사항'));
     if (it.who) L.push('출장자: ' + it.who);
-    if (it.time) L.push('시간(기간): ' + it.time);
+    if (rng || it.time) L.push('시간(기간): ' + [rng, it.time].filter(Boolean).join(' '));
     if (it.content) L.push('내용: ' + it.content);
     if (it.place) L.push('장소: ' + it.place);
   } else {
     L.push('○ ' + it.title);
+    if (rng) L.push('기간: ' + rng);
     if (it.time) L.push('시간: ' + it.time);
     if (it.content) L.push('내용: ' + it.content);
     if (it.place) L.push('장소: ' + it.place);
@@ -78,7 +81,7 @@ export function openGather(k) {
   const root = document.getElementById('g-root');
   root.addEventListener('click', onClick);
   root.querySelector('#g-form').addEventListener('submit', onSubmit);
-  root.querySelector('#g-form').addEventListener('change', e => { if (e.target.name === 'type') renderForm(formValues()) });
+  root.querySelector('#g-form').addEventListener('change', e => { if (e.target.name === 'type') renderForm(formValues()); if (e.target.name === 'date') { const en = e.target.form.querySelector('[name=end]'); if (en) { en.min = e.target.value; if (en.value && en.value <= e.target.value) en.value = '' } } });
   watch();
 }
 function watch() {
@@ -127,8 +130,8 @@ function renderForm(pre) {
   if (kind === 'ilam') {
     const days = weekDays(week), type = it.type || 'work';
     h += '<div class="g-seg"><label><input type="radio" name="type" value="work"' + (type !== 'trip' ? ' checked' : '') + '><span>업무 · 행사</span></label><label><input type="radio" name="type" value="trip"' + (type === 'trip' ? ' checked' : '') + '><span>출장 · 복무</span></label></div>' +
-      '<div class="row2"><label class="fl">날짜' + sel('date', days.map(k => [k, mdd(k)]), it.date || days[0]) + '</label><label class="fl">담당 팀' + sel('team', TEAMS.map(t => [t, t]), team) + '</label></div>';
-    if (type === 'trip') h += inp('title', '제목', it.title, '예: 출장, 연가, 교육', true) + '<div class="row2">' + inp('who', '출장자', it.who ?? C.me.name) + inp('time', '시간(기간)', it.time, '예: 09:00~18:00') + '</div>' + inp('content', '내용', it.content) + inp('place', '장소', it.place);
+      '<div class="row3"><label class="fl">' + (type === 'trip' ? '시작일' : '날짜 (시작일)') + sel('date', days.map(k => [k, mdd(k)]), it.date || days[0]) + '</label><label class="fl">끝나는 날 · 여러 날이면<input type="date" name="end" value="' + esc(it.end || '') + '" min="' + esc(it.date || days[0]) + '"></label><label class="fl">담당 팀' + sel('team', TEAMS.map(t => [t, t]), team) + '</label></div>';
+    if (type === 'trip') h += inp('title', '제목', it.title, '예: 출장, 연가, 교육', true) + '<div class="row2">' + inp('who', '출장자', it.who ?? C.me.name) + inp('time', '시간', it.time, '예: 09:00~18:00') + '</div>' + inp('content', '내용', it.content) + inp('place', '장소', it.place);
     else h += inp('title', '행사 · 업무 이름', it.title, '예: 교원단체 정책협의회', true) + '<div class="row2">' + inp('time', '시간', it.time, '예: 14:00') + inp('place', '장소', it.place) + '</div>' + inp('content', '내용', it.content) + '<div class="row2">' + inp('attend', '참석', it.attend) + inp('owner', '담당', it.owner ?? C.me.name) + '</div>';
   } else if (kind === 'event') {
     const days = weekDays(week);
@@ -153,7 +156,7 @@ async function onSubmit(e) {
   const v = formValues(); const title = (v.title || '').trim(); if (!title) return;
   const base = { kind, period: periodOf(kind), date: v.date, title, time: (v.time || '').trim(), place: (v.place || '').trim(), owner: (v.owner || '').trim(), team: v.team || '', updated: Date.now(), by: C.me.uid, byName: C.me.name };
   let t;
-  if (kind === 'ilam') t = { ...base, type: v.type === 'trip' ? 'trip' : 'work', who: (v.who || '').trim(), content: (v.content || '').trim(), attend: (v.attend || '').trim() };
+  if (kind === 'ilam') t = { ...base, end: v.end && v.end > v.date ? v.end : '', type: v.type === 'trip' ? 'trip' : 'work', who: (v.who || '').trim(), content: (v.content || '').trim(), attend: (v.attend || '').trim() };
   else if (kind === 'event') t = { ...base, present: !!v.present, ext: (v.ext || '').trim(), purpose: (v.purpose || '').trim(), end: v.end && v.end > v.date ? v.end : '', target: (v.target || '').trim(), contents: String(v.contents || '').split('\n').map(s => s.replace(/^\s*[-·•]\s*/, '').trim()).filter(Boolean), promo: v.promo || '없음' };
   else t = base;
   if (v.team) ls.set('g-team', v.team); if (v.ext) ls.set('g-ext', v.ext.trim());
