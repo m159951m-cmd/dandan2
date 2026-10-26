@@ -113,6 +113,44 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .sheet .owner{font-size:12.5px;color:var(--muted)}
 .btn.danger{color:#b42318;border-color:#f1c4bf}.btn.danger.ask{background:#b42318;border-color:#b42318;color:#fff}
 .acts .sp{flex:1}
+.qr-mini{margin-right:6px}
+/* 업무 취합 */
+.sheet.wide{max-width:1040px!important;width:100%}
+body.full .sheet.wide{height:86vh}
+.g-root{display:flex;flex-direction:column;gap:12px;min-height:0;height:100%}
+.g-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.g-tabs{display:flex;gap:4px;background:var(--soft);padding:4px;border-radius:12px}
+.g-tabs button{padding:7px 14px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted)}
+.g-tabs button[aria-selected=true]{background:#fff;color:var(--fg);box-shadow:0 1px 3px rgba(15,35,60,.12)}
+.g-period{display:flex;align-items:center;gap:6px}.g-period b{font-size:16px;font-family:var(--num);min-width:15em;text-align:center}
+.g-count{margin-left:auto;color:var(--muted);font-size:13px}
+.g-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,1fr);gap:16px;min-height:0;flex:1}
+.g-list{overflow:auto;min-height:0;border:1px solid var(--line);border-radius:14px;padding:6px 10px 10px}
+.g-empty{color:var(--muted);text-align:center;margin:40px 0;line-height:1.7}
+.g-day{position:sticky;top:-6px;background:#fff;font-weight:700;font-size:13px;color:var(--muted);padding:10px 2px 4px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.g-it{display:flex;gap:10px;align-items:flex-start;padding:8px 4px;border-radius:10px}
+.g-it.on{background:var(--accent-soft)}
+.g-team{flex:none;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:999px;background:#eef1f5;color:#3f4a56;margin-top:2px}
+.g-team.t-0{background:#fde2ec;color:#a61e4d}.g-team.t-1{background:#dbeafe;color:#1e4fa3}.g-team.t-2{background:#ede4fb;color:#5f3dc4}.g-team.t-3{background:#dcf3e4;color:#1f7a45}.g-team.t-4{background:#ffe6d2;color:#b35000}.g-team.t-pr{background:#dbe4ff;color:#2042c9}
+.g-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.g-tx b{font-size:14.5px;font-weight:600;word-break:keep-all;overflow-wrap:anywhere}
+.g-tx small{font-size:12.5px;color:var(--muted);word-break:keep-all;overflow-wrap:anywhere}
+.g-tx .g-by{font-size:11.5px;opacity:.8}
+.g-btns{display:flex;gap:4px;flex:none}
+.btn-x{font-size:12.5px;padding:4px 9px;border-radius:8px;border:1px solid var(--line);background:#fff}
+.btn-x.del{color:#b42318}.btn-x.del.ask{background:#b42318;color:#fff;border-color:#b42318}
+.g-form{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:10px;font-size:14px;color:var(--fg);background:var(--soft);border-radius:14px;padding:14px 16px}
+.g-form h3{margin:0;font-size:15px}
+.g-form textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;resize:vertical;background:#fff}
+.g-form input[type=text],.g-form input[type=date],.g-form select{width:100%;border:0;border-bottom:1px solid var(--line);padding:7px 2px;background:transparent;min-width:0;font-size:14px}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.g-seg{display:flex;gap:6px}.g-seg label{flex:1}.g-seg input{position:absolute;opacity:0}
+.g-seg span{display:block;text-align:center;padding:7px;border-radius:9px;border:1px solid var(--line);background:#fff;font-weight:600;cursor:pointer}
+.g-seg input:checked+span{border-color:var(--accent);background:var(--accent-soft);color:#0d4ea6}
+.g-seg input:focus-visible+span{outline:2px solid var(--accent)}
+.g-pr{font-weight:600}
+.g-acts{border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:760px){.g-body{grid-template-columns:1fr}.g-period b{min-width:0}.row3{grid-template-columns:1fr 1fr}}
 /* 날짜 창에서는 긴 제목도 줄을 바꿔 전부 보여 줌 */
 .day-list .ev .t{white-space:normal;overflow:visible;text-overflow:clip;word-break:keep-all;overflow-wrap:anywhere;line-height:1.4}
 .day-list .ev{align-items:flex-start}.day-list .ev .tm{padding-top:2px}
@@ -325,6 +363,7 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
     <span class="sp"></span>
     <div class="thwrap"><button type="button" class="icon th-btn" id="th-btn" aria-label="배경 색 바꾸기" title="배경 색 바꾸기" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10" cy="7" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor"/></svg></button>
       <div class="th-pop m-pop" id="th-pop" hidden role="group" aria-label="배경 색"></div></div>
+    <button type="button" class="icon qr-mini" data-qr aria-label="휴대폰으로 열기 (QR코드)" title="휴대폰으로 열기 (QR코드)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button>
     <div class="thwrap calcwrap"><button type="button" class="icon" id="calc-btn" aria-label="계산기" title="계산기" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M8.5 7h7"/><circle cx="9" cy="12" r=".9" fill="currentColor"/><circle cx="12" cy="12" r=".9" fill="currentColor"/><circle cx="15" cy="12" r=".9" fill="currentColor"/><circle cx="9" cy="16.5" r=".9" fill="currentColor"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/><circle cx="15" cy="16.5" r=".9" fill="currentColor"/></svg></button>
       <div class="calc-pop m-pop" id="calc-pop" hidden role="dialog" aria-label="계산기">
         <div class="cd" id="calc-d" title="누르면 결과를 복사해요"><small id="calc-h"></small><b id="calc-v" aria-live="polite">0</b></div>
@@ -360,6 +399,7 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
 import * as CFG from "./config.js";
 const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = CFG.collectFirebase || null;
 import { collectWatch, collectJoin, dueLabel, fmtDue } from "./collect.js";
+import { initGather, openGather, nextWeekKey } from "./gather.js";
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -415,6 +455,7 @@ function startApp(u){
   if(!u){$('login').hidden=false;$('app').hidden=true;return}
   $('login').hidden=true;$('app').hidden=false;
   startCollect();
+  initGather({fs,get me(){return me},openSheet,closeSheet,toast});
   onSnapshot(collection(fs,'users'),s=>{profiles={};s.docs.forEach(d=>profiles[d.id]=d.data());if(!profiles[u.uid])profiles[u.uid]={name:u.name};watchAll();render()});
   watchAll();render();
 }
@@ -455,7 +496,7 @@ function renderFull(){
   let side='<aside class="f-side"><div class="f-clock"><div class="time" id="f-time"></div><div class="date" id="f-date"></div>'+
     (collectUrl?'<a class="f-link" href="'+esc(collectUrl)+'" target="_blank" rel="noopener"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h10l6 6v10H4z"/><path d="M14 4v6h6"/></svg></span><span>자료취합<small>취합 건 등록 · 파일 모으기</small></span><span class="ar">↗</span></a>':'')+
     '<a class="f-link dd" href="dashboard.html" target="_blank" rel="noopener"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span>일정입력<small>팀·개인 일정 추가 · 수정 · 업무 일람 올리기</small></span><span class="ar">↗</span></a>'+
-    '<button type="button" class="f-link qr-open" data-qr><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></span><span>휴대폰으로 열기<small>QR코드를 찍으면 이 캘린더가 휴대폰에서 열려요</small></span></button></div>'+collectHTML();
+    '<button type="button" class="f-link g-open" data-gather><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5.5H6a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6.5a1 1 0 0 0-1-1h-2"/><path d="M9 12l2 2 4-4"/><path d="M9 17h6"/></svg></span><span>업무 취합<small>주간 업무 일람 · 주요행사 자료 · 월간 계획 등록</small></span><span class="ar">›</span></button></div>'+collectHTML();
   side+='<div class="f-sec"><h3><span>'+(isT?'오늘':(sd.getMonth()+1)+'월 '+sd.getDate()+'일 ('+DOW[sd.getDay()]+')')+' 일정</span><button type="button" data-add="'+selDay+'">+ 추가</button></h3><div class="ag-list">'+
     (sel.length?sel.map(t=>evHTML(t,selDay)).join(''):'<div class="ag-empty">일정 없음</div>')+'</div></div>';
   if(L&&((L.items&&L.items.length)||L.off))side+='<div class="f-sec"><h3><span>'+(isT?'오늘의 ':'')+'점심</span></h3><div class="f-lunch">'+(L.note?'<span class="note">'+esc(L.note)+'</span><br>':'')+
@@ -592,7 +633,7 @@ $('main').addEventListener('click',e=>{
 $('fab').onclick=()=>openAdd(selDay>=TODAY?selDay:TODAY);
 
 /* 아래 창 */
-function openSheet(html,label){$('sheet').innerHTML=html;$('sheet').setAttribute('aria-label',label);$('sheet-wrap').hidden=false;setTimeout(()=>{const f=$('sheet').querySelector('input.big,button.btn.primary,input');if(f)f.focus()},30)}
+function openSheet(html,label,wide){$('sheet').classList.toggle('wide',wide==='wide');$('sheet').innerHTML=html;$('sheet').setAttribute('aria-label',label);$('sheet-wrap').hidden=false;setTimeout(()=>{const f=$('sheet').querySelector('input.big,button.btn.primary,input');if(f)f.focus()},30)}
 function closeSheet(){$('sheet-wrap').hidden=true}
 $('sheet-wrap').addEventListener('click',e=>{if(e.target===$('sheet-wrap')||e.target.closest('[data-close]')){closeSheet();return}
   const ev=e.target.closest('.ev[data-id]');if(ev){openEdit(ev.dataset.o,ev.dataset.id);return}
@@ -658,7 +699,7 @@ function openEdit(o,id){
 $('cals').onclick=()=>{
   const ids=[PK,...Object.keys(profiles).sort((a,b)=>a===me.uid?-1:b===me.uid?1:nameOf(a).localeCompare(nameOf(b),'ko'))], on=visible();
   openSheet('<h2>캘린더</h2><div class="cal-list">'+ids.map(u=>{const c=personColor(u);return '<label class="c-'+c+'" style="--pc:var(--evdot)"><input type="checkbox" value="'+u+'"'+(on.includes(u)?' checked':'')+'> '+esc(nameOf(u))+(u===me.uid?' <span class="me">(나 · 팀)</span>':u===PK?' 일정 <span class="me">(나만 보임)</span>':'')+'</label>'}).join('')+'</div>'+
-    '<p class="meta" style="margin:0">체크한 사람의 일정이 함께 보여요. 동료 일정은 그 사람 색으로 표시돼요.</p>'+(window.qrcode?'<button type="button" class="btn" data-qr style="align-self:flex-start">휴대폰으로 열기 (QR코드)</button>':'')+(window.parent!==window?'<button type="button" class="btn" id="calib" style="align-self:flex-start">화면 맞춤 (가장자리가 잘릴 때)</button>':'')+'<div class="acts"><a class="btn link" href="dashboard.html" target="_blank" rel="noopener">전체 대시보드 열기 ↗</a><button type="button" class="btn primary" data-close>완료</button></div>','캘린더 고르기');
+    '<p class="meta" style="margin:0">체크한 사람의 일정이 함께 보여요. 동료 일정은 그 사람 색으로 표시돼요.</p>'+'<button type="button" class="btn" data-gather style="align-self:flex-start">업무 취합 (일람 · 행사 · 월간)</button>'+(window.qrcode?'<button type="button" class="btn" data-qr style="align-self:flex-start">휴대폰으로 열기 (QR코드)</button>':'')+(window.parent!==window?'<button type="button" class="btn" id="calib" style="align-self:flex-start">화면 맞춤 (가장자리가 잘릴 때)</button>':'')+'<div class="acts"><a class="btn link" href="dashboard.html" target="_blank" rel="noopener">전체 대시보드 열기 ↗</a><button type="button" class="btn primary" data-close>완료</button></div>','캘린더 고르기');
   const cb=$('calib'); if(cb)cb.onclick=()=>{closeSheet();try{window.parent.postMessage({type:'calibrate'},location.origin)}catch(e){}};
   $('sheet').querySelectorAll('.cal-list input').forEach(i=>i.onchange=()=>{
     shown=[...$('sheet').querySelectorAll('.cal-list input:checked')].map(x=>x.value); if(!shown.length)shown=[PK];
@@ -680,6 +721,7 @@ function openQR(){
     '<div class="acts"><button type="button" class="btn primary" data-close>닫기</button></div>','휴대폰으로 열기');
   draw(); $('qr-name').onchange=draw;
 }
+document.addEventListener('click',e=>{if(e.target.closest('[data-gather]')){closeSheet();setTimeout(()=>openGather(),$('sheet-wrap').hidden?0:180);return}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-qr]')){closeSheet();setTimeout(openQR,closeSheet&&$('sheet-wrap').hidden?0:180)}});
 
 /* ---------- 자료취합 마감 알림 ---------- */
@@ -720,7 +762,7 @@ function checkAlerts(){
     (collectUrl?'<a href="'+esc(collectUrl)+'" target="_blank" rel="noopener">자료취합 열기 ↗</a>':'')+'<button type="button" data-done>이미 냈어요</button><button type="button" data-ok>확인</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
-  const close=()=>{list.forEach(x=>lsSet(ALERT_KEY(x.it,x.st),'1'));window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(checkAlerts,500)};
+  const close=()=>{list.forEach(x=>lsSet(ALERT_KEY(x.it,x.st),'1'));window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
   box.querySelector('[data-ok]').onclick=close; box.querySelector('a')&&box.querySelector('a').addEventListener('click',close);
   box.querySelector('[data-done]').onclick=()=>{list.forEach(x=>lsSet('cl-done-'+x.it.id,'1'));collect={...collect,items:collect.items.filter(it=>lsGet('cl-done-'+it.id)!=='1')};close();if(FULL)render();toast('취합 마감 목록에서 뺐어요')};
   setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
@@ -752,12 +794,31 @@ function checkTaskAlerts(){
     '<button type="button" data-z>5분 뒤 다시</button><button type="button" data-ok class="primary">확인</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
-  const close=()=>{window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkTaskAlerts()},500)};
+  const close=()=>{window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
   box.querySelector('[data-ok]').onclick=()=>{due.forEach(t=>lsSet(TA_KEY(t),'1'));close()};
   box.querySelector('[data-z]').onclick=()=>{due.forEach(t=>lsSet(TA_KEY(t)+'-z',String(Date.now()+5*6e4)));close()};
   setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
 }
 setInterval(checkTaskAlerts,20000); setTimeout(checkTaskAlerts,4000);
+
+/* 업무 취합 알림: 매주 월·화 9시 30분, 오후 5시. '확인했어요'를 누르기 전까지 사라지지 않음 */
+function weekSlot(){const n=new Date(),w=n.getDay();if(w!==1&&w!==2)return '';const m=n.getHours()*60+n.getMinutes();
+  return m>=17*60?ymd(n)+'-1700':m>=9*60+30?ymd(n)+'-0930':''}
+function checkWeekAlert(){
+  if(alertOn||!me)return; const slot=weekSlot(); if(!slot||lsGet('wk-ack-'+slot)==='1')return;
+  alertOn=true; const nk=nextWeekKey(), a=parse(nk), b=addDays(a,6), rng=(a.getMonth()+1)+'/'+a.getDate()+'(월) ~ '+(b.getMonth()+1)+'/'+b.getDate()+'(일)';
+  const box=document.createElement('div'); box.className='big-alert task wk'; box.setAttribute('role','alertdialog'); box.setAttribute('aria-modal','true');
+  box.innerHTML='<div class="ba"><div class="ic">📋</div><h2>업무 취합 등록 시간이에요</h2><p>'+esc(me.name)+' 님, 다음 주 업무를 등록해 주세요</p><ul>'+
+    '<li>주간 업무 일람<small>다음 주 '+rng+' 행사 · 업무 · 출장</small></li><li>주요행사 자료<small>다음 주 행사의 목적 · 일시 · 장소 · 대상 · 내용</small></li></ul>'+
+    '<div class="acts"><button type="button" data-go>지금 등록하기</button><button type="button" data-ok class="primary">확인했어요</button></div></div>';
+  document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
+  try{window.top.appAttention&&window.top.appAttention()}catch(e){}
+  const done=()=>{lsSet('wk-ack-'+slot,'1');window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
+  box.querySelector('[data-ok]').onclick=done;
+  box.querySelector('[data-go]').onclick=()=>{done();setTimeout(()=>openGather('ilam'),250)};
+  setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
+}
+setInterval(checkWeekAlert,20000); setTimeout(checkWeekAlert,3000);
 </script>
 </body>
 </html>
