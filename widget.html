@@ -70,7 +70,13 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .mc:hover{background:var(--soft)}
 .mc .d{align-self:center;font-family:var(--num);font-size:12px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;margin-bottom:1px}
 .mc.other .d{color:#b8c2cc}
-.mc.sun .d{color:var(--hi)}
+.mc.sun .d,.mc.hol .d{color:var(--hi)}
+/* 공휴일 이름 */
+.mc{position:relative}
+.hol-n{position:absolute;top:5px;right:6px;font-size:10.5px;font-weight:700;color:var(--hi);white-space:nowrap;max-width:62%;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.f-month .hol-n{top:9px;right:10px;font-size:12.5px}
+.ag-hol{display:block;font-style:normal;font-size:10.5px;color:var(--hi);font-weight:700;margin-top:2px;white-space:nowrap}
+@media (max-width:420px){.hol-n{display:none}}
 .mc.today .d{background:var(--accent);color:#fff}
 .mc.sel{background:var(--accent-soft)}
 .mchip{font-size:11px;line-height:1.35;padding:1px 4px;border-radius:4px;background:var(--evbg);color:var(--evfg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -483,6 +489,7 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
 import * as CFG from "./config.js";
 const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = CFG.collectFirebase || null;
 import { collectWatch, collectJoin, dueLabel, fmtDue } from "./collect.js";
+import { holidayOf } from "./holidays.js";
 import { initGather, openGather, nextWeekKey } from "./gather.js";
 import { initNotice, openNoticeComposer, openNews, noticePending, noticeAck, noticeText } from "./notice.js";
 import { initTravel } from "./travel.js";
@@ -574,7 +581,7 @@ function renderFull(){
   let h='<section class="f-month"><div class="mo-head">'+DOW.map(x=>'<span>'+x+'</span>').join('')+'</div><div class="mo-grid" style="grid-template-rows:repeat('+weeks+',minmax(0,1fr))">';
   for(let d=new Date(start);d<=end;d=addDays(d,1)){
     const k=ymd(d), evs=T.filter(t=>occurs(t,k)).sort(sortEv), show=evs.slice(0,6), L=lunchOf(k);
-    h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건"><span class="d">'+d.getDate()+'</span>'+
+    h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(holidayOf(k)?' hol':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건'+(holidayOf(k)?' · '+holidayOf(k):'')+'"><span class="d">'+d.getDate()+'</span>'+(holidayOf(k)?'<span class="hol-n">'+holidayOf(k)+'</span>':'')+
       show.map(t=>'<span data-tip="'+esc(tipOf(t))+'" class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(!isMulti(t)&&t.time?'<span class="tm">'+t.time+'</span>':'')+(TEAM?(t.owner==='dept'||t.owner===PK?'':'<span class="who-n">'+esc(nameOf(t.owner))+'</span>')+esc(t.title):esc((t.owner!==me.uid&&t.owner!==PK?nameOf(t.owner)+' · ':'')+t.title))+'</span>').join('')+
       (evs.length>6?'<span class="mmore">+'+(evs.length-6)+'건</span>':'')+
       (d.getMonth()===cursor.getMonth()&&L&&L.items&&L.items.length?'<span class="mlunch"><b>점심</b>'+esc(L.items.slice(0,2).join(' · '))+'</span>':d.getMonth()===cursor.getMonth()&&L&&L.off==='외식의 날'?'<span class="mlunch"><b>외식의 날</b></span>':'')+'</button>';
@@ -593,7 +600,7 @@ function renderFull(){
   let up='';
   for(let i=1;i<=14&&up.split('ag-day').length<8;i++){
     const d=addDays(parse(selDay),i), k=ymd(d), evs=T.filter(t=>occurs(t,k)&&!t.done).sort(sortEv); if(!evs.length)continue;
-    up+='<div class="ag-day'+(d.getDay()===0||d.getDay()===6?' we':'')+'"><div class="ag-date" data-day="'+k+'"><small>'+DOW[d.getDay()]+'</small><b>'+d.getDate()+'</b></div><div class="ag-list">'+evs.map(t=>evHTML(t,k)).join('')+'</div></div>';
+    up+='<div class="ag-day'+(d.getDay()===0||d.getDay()===6||holidayOf(k)?' we':'')+'"><div class="ag-date" data-day="'+k+'"><small>'+DOW[d.getDay()]+'</small><b>'+d.getDate()+'</b>'+(holidayOf(k)?'<em class="ag-hol">'+holidayOf(k)+'</em>':'')+'</div><div class="ag-list">'+evs.map(t=>evHTML(t,k)).join('')+'</div></div>';
   }
   side+='<div class="f-sec"><h3><span>다가오는 일정</span></h3><div class="f-up">'+(up||'<div class="ag-empty">2주 안에 일정이 없어요</div>')+'</div></div></aside>';
   $('main').innerHTML=h+side; tickClock();
@@ -624,7 +631,7 @@ function renderAgenda(){
     else if(L&&L.off==='외식의 날')list+='<div class="ev lunch eatout"><span class="t">외식의 날</span></div>';
     if(!evs.length&&!list)list='<div class="ag-empty">일정 없음</div>';
     else if(!evs.length)list='<div class="ag-empty">일정 없음</div>'+list;
-    h+='<div class="ag-day'+(isT?' today':'')+(we?' we':'')+(k===selDay&&!isT?' sel':'')+'" id="d-'+k+'"><div class="ag-date" data-add="'+k+'" title="이 날짜에 추가"><small>'+DOW[d.getDay()]+'</small><b>'+d.getDate()+'</b></div><div class="ag-list">'+list+'</div></div>';
+    h+='<div class="ag-day'+(isT?' today':'')+(we||holidayOf(k)?' we':'')+(k===selDay&&!isT?' sel':'')+'" id="d-'+k+'"><div class="ag-date" data-add="'+k+'" title="이 날짜에 추가"><small>'+DOW[d.getDay()]+'</small><b>'+d.getDate()+'</b>'+(holidayOf(k)?'<em class="ag-hol">'+holidayOf(k)+'</em>':'')+'</div><div class="ag-list">'+list+'</div></div>';
   }
   if(!h)h='<div class="ag-empty" style="padding:24px">앞으로 '+agendaDays+'일 동안 일정이 없어요.</div>';
   h+='<button type="button" class="ag-more" id="more">더 보기</button>';
@@ -637,7 +644,7 @@ function renderMonth(){
   let h='<div class="mo-head">'+DOW.map(x=>'<span>'+x+'</span>').join('')+'</div><div class="mo-grid">';
   for(let d=new Date(start);d<=end;d=addDays(d,1)){
     const k=ymd(d), evs=T.filter(t=>occurs(t,k)).sort(sortEv), show=evs.slice(0,3);
-    h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건"><span class="d">'+d.getDate()+'</span>'+
+    h+='<button type="button" class="mc'+(d.getMonth()!==cursor.getMonth()?' other':'')+(d.getDay()===0?' sun':'')+(holidayOf(k)?' hol':'')+(k===TODAY?' today':'')+(k===selDay&&k!==TODAY?' sel':'')+'" data-day="'+k+'" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+evs.length+'건'+(holidayOf(k)?' · '+holidayOf(k):'')+'"><span class="d">'+d.getDate()+'</span>'+(holidayOf(k)?'<span class="hol-n">'+holidayOf(k)+'</span>':'')+
       show.map(t=>'<span data-tip="'+esc(tipOf(t))+'" class="mchip c-'+colorOf(t)+(isMulti(t)||!t.time?'':' timed')+(t.done?' done':'')+'">'+(TEAM&&t.owner!=='dept'&&t.owner!==PK?'<span class="who-n">'+esc(nameOf(t.owner))+'</span>':'')+esc(t.title)+'</span>').join('')+(evs.length>3?'<span class="mmore">+'+(evs.length-3)+'</span>':'')+'</button>';
   }
   h+='</div>';

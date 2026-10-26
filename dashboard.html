@@ -154,6 +154,7 @@ tr.c-pink .il-t{color:#a01a4c}
 .mcell.today{border-color:var(--accent);background:var(--accent-soft)}
 .mcell .md{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-num);font-size:15px;font-weight:600}
 .mcell.we .md{color:var(--hi)}
+.mcell .hol-n,#print-area .hol-n{font-size:11px;font-weight:700;margin-left:5px;font-family:var(--font, inherit)}
 .mcell .mcount{display:none;font-size:11px;font-weight:600;color:#fff;background:var(--accent);border-radius:999px;padding:0 6px;font-family:var(--font-body)}
 .mchip{font-size:12px;line-height:1.35;padding:3px 6px;border-radius:5px;background:var(--bg);border-left:3px solid var(--accent);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .mchip.high{border-left-color:var(--hi)} .mchip.mid{border-left-color:var(--mid)} .mchip.low{border-left-color:var(--lo)}
@@ -842,6 +843,7 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
 <script src="motion.js"></script>
 <script type="module">
 import { firebaseConfig } from "./config.js";
+import { holidayOf } from "./holidays.js";
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -1196,7 +1198,7 @@ function ilamTable(days,T){
   // 여러 날 일정은 이번 주에서 처음 보이는 날 칸에만 (한글 일람과 같게)
   const firstDay=t=>days.find(k=>occurs(t,k));
   const groups=[...new Set(D.filter(t=>firstDay(t)).map(groupOf).filter(Boolean))].sort((a,b)=>{const ia=GROUP_ORDER.indexOf(a),ib=GROUP_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b,'ko')});
-  const lab=ks=>ks.map(k=>{const d=parse(k);return '<span class="'+(d.getDay()===6?'sat':d.getDay()===0?'sun':'')+'">'+(d.getMonth()+1)+'/'+d.getDate()+'('+DOW[d.getDay()]+')</span>'}).join(' ');
+  const lab=ks=>ks.map(k=>{const d=parse(k);return '<span class="'+(d.getDay()===0||holidayOf(k)?'sun':d.getDay()===6?'sat':'')+'">'+(d.getMonth()+1)+'/'+d.getDate()+'('+DOW[d.getDay()]+')'+(holidayOf(k)?' '+holidayOf(k):'')+'</span>'}).join(' ');
   let h='<div class="il-scroll"><table class="il-week"><colgroup><col class="c-g">'+cols.map(()=>'<col>').join('')+'</colgroup><thead><tr><th class="corner"><span>날짜</span><span>담당</span></th>'+
     cols.map(ks=>'<th'+(ks.includes(TODAY)?' class="today"':'')+' data-date="'+ks[0]+'">'+lab(ks)+'</th>').join('')+'</tr></thead><tbody>';
   if(!groups.length)h+='<tr><td colspan="7" class="il-empty">이번 주 과 주요일정이 없어요. 할 일 관리 위 <b>업무 일람 올리기</b>로 한글 파일을 올려 주세요.</td></tr>';
@@ -1250,8 +1252,8 @@ function month(){
     const row=all.slice(r,r+7), L=layoutRow(row,T);
     row.forEach((k,i)=>{const d=parse(k), we=d.getDay()===0||d.getDay()===6, B=barsFor(k,i,L);
       const singles=T.filter(t=>!isMulti(t)&&t.date===k).sort(sortT), show=singles.slice(0,Math.max(1,3-B.n)), hidden=singles.length-show.length, cnt=B.n+singles.length;
-      h+='<div class="mcell'+(d.getMonth()!==mo?' other':'')+(k===TODAY?' today':'')+(we?' we':'')+'" data-date="'+k+'" role="button" tabindex="0" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+cnt+'건">'+
-        '<div class="md"><span>'+d.getDate()+'</span>'+(cnt?'<span class="mcount">'+cnt+'</span>':'')+'</div>'+
+      h+='<div class="mcell'+(d.getMonth()!==mo?' other':'')+(k===TODAY?' today':'')+(we||holidayOf(k)?' we':'')+'" data-date="'+k+'" role="button" tabindex="0" aria-label="'+(d.getMonth()+1)+'월 '+d.getDate()+'일 일정 '+cnt+'건'+(holidayOf(k)?' · '+holidayOf(k):'')+'">'+
+        '<div class="md"><span>'+d.getDate()+(holidayOf(k)?'<small class="hol-n">'+holidayOf(k)+'</small>':'')+'</span>'+(cnt?'<span class="mcount">'+cnt+'</span>':'')+'</div>'+
         B.h+show.map(t=>chipHTML(t,'mchip')).join('')+(hidden>0?'<span class="more">+'+hidden+'건</span>':'')+'</div>';
     });
   }
@@ -1396,7 +1398,7 @@ function printMonth(P){
     const row=all.slice(r,r+7), L=layoutRow(row,T);
     row.forEach((k,i)=>{const d=parse(k), we=d.getDay()===0||d.getDay()===6, B=barsFor(k,i,L);
       const singles=T.filter(t=>!isMulti(t)&&t.date===k).sort(sortT), show=singles.slice(0,Math.max(0,P.lim-B.n)), hidden=singles.length-show.length;
-      cells+='<div class="pc'+(d.getMonth()!==mo?' other':'')+(we?' we':'')+'"><div class="pd">'+d.getDate()+'</div>'+B.h+
+      cells+='<div class="pc'+(d.getMonth()!==mo?' other':'')+(we||holidayOf(k)?' we':'')+'"><div class="pd">'+d.getDate()+(holidayOf(k)?' <small class="hol-n">'+holidayOf(k)+'</small>':'')+'</div>'+B.h+
         show.map(t=>'<div class="pi '+t.pri+cCls(t)+(t.done?' done':'')+'">'+(t.time?'<b>'+t.time+'</b> ':'')+esc(printWho(t)+t.title)+'</div>').join('')+
         (hidden>0?'<div class="pm">+'+hidden+'건</div>':'')+'</div>';
     });
