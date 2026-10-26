@@ -220,7 +220,7 @@ async function onSubmit(e) {
 let delAsk = null, delTm = 0;
 async function onClick(e) {
   const t = e.target;
-  if (t.closest('[data-g-travel]')) { if (unsub) { unsub(); unsub = null } import('./travel.js').then(m => m.openTravel()); return }
+  if (t.closest('[data-g-travel]')) { if (unsub) { unsub(); unsub = null } import('./travel.js'+(window.__V||'')).then(m => m.openTravel()); return }
   const kb = t.closest('[data-g-kind]'); if (kb) { if (kb.dataset.gKind !== kind) { kind = kb.dataset.gKind; editId = null; watch() } return }
   const mv = t.closest('[data-g-move]'); if (mv) {
     const n = Number(mv.dataset.gMove);

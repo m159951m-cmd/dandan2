@@ -486,17 +486,14 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
 <script src="motion.js"></script>
 <script src="qr.js"></script>
 <script type="module">
-import * as CFG from "./config.js";
+// 우리 파일(.js)은 열 때마다 최신 것을 받아요 (업무일정표 프로그램이 예전 파일을 붙잡고 있지 않게)
+const V='?v='+(new URLSearchParams(location.search).get('v')||Date.now()); window.__V=V;
+const [CFG,{ collectWatch, collectJoin, dueLabel, fmtDue },{ holidayOf },{ initGather, openGather, nextWeekKey },{ initNotice, openNoticeComposer, openNews, noticePending, noticeAck, noticeText },{ initTravel },{ ready, savedWho, enterByName, whoError, ensurePin }]=
+  await Promise.all(['config','collect','holidays','gather','notice','travel','who'].map(n=>import('./'+n+'.js'+V)));
 const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = CFG.collectFirebase || null;
-import { collectWatch, collectJoin, dueLabel, fmtDue } from "./collect.js";
-import { holidayOf } from "./holidays.js";
-import { initGather, openGather, nextWeekKey } from "./gather.js";
-import { initNotice, openNoticeComposer, openNews, noticePending, noticeAck, noticeText } from "./notice.js";
-import { initTravel } from "./travel.js";
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { ready, savedWho, enterByName, whoError, ensurePin } from "./who.js";
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app=initializeApp(firebaseConfig), auth=getAuth(app), fs=getFirestore(app);
 
@@ -823,7 +820,7 @@ function openQR(){
 }
 $('nt-btn').onclick=()=>{if(me)openNoticeComposer()};
 $('nw-btn').onclick=()=>{if(me)openNews()};
-document.addEventListener('click',e=>{if(e.target.closest('[data-travel]')){closeSheet();setTimeout(()=>import('./travel.js').then(m=>m.openTravel()),$('sheet-wrap').hidden?0:180)}});
+document.addEventListener('click',e=>{if(e.target.closest('[data-travel]')){closeSheet();setTimeout(()=>import('./travel.js'+V).then(m=>m.openTravel()),$('sheet-wrap').hidden?0:180)}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-gather]')){closeSheet();setTimeout(()=>openGather(),$('sheet-wrap').hidden?0:180);return}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-qr]')){closeSheet();setTimeout(openQR,closeSheet&&$('sheet-wrap').hidden?0:180)}});
 
@@ -928,7 +925,7 @@ function checkNoticeAlert(){
   if(alertOn||!me)return; const n=noticePending()[0]; if(!n)return;
   alertOn=true; const t=noticeText(n), more=noticePending().length-1;
   const box=document.createElement('div'); box.className='big-alert notice'; box.setAttribute('role','alertdialog'); box.setAttribute('aria-modal','true');
-  box.innerHTML='<div class="ba"><div class="ic">📢</div><h2>'+esc(t.title)+'</h2><p>'+esc(t.from)+' 님이 보낸 공지 · '+esc(t.at)+'</p><div class="nt-msg">'+esc(t.body).replace(/\n/g,'<br>')+'</div>'+
+  box.innerHTML='<div class="ba"><div class="ic">📢</div><h2>'+esc(t.title)+'</h2><p>'+esc(t.from)+(/님$/.test(t.from)?'':' 님')+'이 보낸 공지 · '+esc(t.at)+'</p><div class="nt-msg">'+esc(t.body).replace(/\n/g,'<br>')+'</div>'+
     (more>0?'<p class="nt-more">공지가 '+more+'개 더 있어요</p>':'')+'<div class="acts"><button type="button" data-ok class="primary">확인했어요</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
