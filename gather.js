@@ -2,7 +2,8 @@
 // - 각자 자기 업무를 등록하고, 담당자는 모인 내용을 한글 파일(HWPX)로 받거나 인쇄해요.
 // - 한글 파일은 과에서 쓰는 양식(forms/*.hwpx)에 내용을 채워서 만들어요.
 // - 저장 위치: users/gather-box/items (사람 목록에는 나오지 않는 공용 상자)
-import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// - 주간 업무 일람 · 월간 계획에 등록한 것은 '과 주요일정'(팀 월별 계획표)에도 자동으로 들어가요.
 
 export const TEAMS = ['과장', '중등장학', '중등인사', '교육과정', '교직단체'];
 const KINDS = { ilam: '주간 업무 일람', event: '주요행사 자료', month: '월간 계획' };
@@ -34,6 +35,43 @@ const periodOf = k => k === 'month' ? month : week;
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 export function initGather(ctx) { C = ctx }
+
+/* ---------- 과 주요일정(팀 월별 계획표)에 자동으로 넣기 ----------
+   단단이 '업무 일람 올리기'와 같은 이름표(id)를 써서, 나중에 일람 한글 파일을 올려도 두 번 생기지 않아요.
+   같은 날 · 같은 팀 · 같은 제목이면 주간 일람과 월간 계획에 둘 다 등록해도 하나로 보여요. */
+const DEPT = 'dept';
+const ilId = s => { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0 } return 'il_' + h.toString(36) };
+const firstTime = s => { const m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? pad(m[1]) + ':' + m[2] : '' };
+const names = s => String(s || '').split(/[,，、·\/]|\s및\s|\s외\s/).map(x => x.replace(/\(.*?\)|[*]|\s|수석교사|교사|장학사|장학관|주무관|회장|외.*$|\d+명/g, '').trim()).filter(x => /^[가-힣]{2,4}$/.test(x));
+function mirrorOf(it) {
+  if (!(it.kind === 'ilam' || it.kind === 'month') || !it.date || !it.title) return null;
+  const head = it.title.replace(/\s+/g, ' ').trim();
+  const trip = it.kind === 'ilam' && it.type === 'trip' && (/^출장$/.test(head) || (!!it.who && /출장/.test(head)));
+  const title = trip ? '출장' + (it.content ? ' · ' + it.content : '') : head;
+  const team = it.team || '업무';
+  const people = [...new Set(names(it.type === 'trip' ? it.who : it.owner))];
+  const who = people.length ? (people.length > 3 ? people.slice(0, 3).join(', ') + ' 외 ' + (people.length - 3) + '명' : people.join(', ')) + ' ' : '';
+  const note = [it.content && !trip ? '내용: ' + it.content : '', it.place ? '장소: ' + it.place : '', it.attend ? '참석: ' + it.attend : '', it.time && !/^\d{1,2}:\d{2}~?$/.test(it.time) ? '시간: ' + it.time : ''].filter(Boolean).join('\n');
+  return { id: ilId(DEPT + '|' + it.date + '|' + team + '|' + title), data: { title: '[' + team + '] ' + who + title, raw: title, people, date: it.date, endDate: it.end && it.end > it.date ? it.end : '', time: firstTime(it.time), pri: 'mid', cat: team, color: trip ? 'orange' : '', note, src: 'gather' } };
+}
+const deptDoc = id => doc(C.fs, 'users', DEPT, 'tasks', id);
+async function putMirror(it) {
+  const m = mirrorOf(it); if (!m) return;
+  const ex = await getDoc(deptDoc(m.id)).catch(() => null);
+  await setDoc(deptDoc(m.id), { ...m.data, done: ex && ex.exists() ? !!ex.data().done : false, gid: it.id, by: C.me.uid, byName: C.me.name, updated: Date.now(), ...(ex && ex.exists() ? {} : { created: Date.now() }) }, { merge: true });
+}
+// 다른 취합 항목이 같은 일정을 쓰고 있으면 지우지 않음
+async function dropMirror(old, exceptId) {
+  const m = mirrorOf(old); if (!m) return;
+  try {
+    const same = await getDocs(query(box(), where('date', '==', old.date)));
+    if (same.docs.some(d => d.id !== exceptId && d.id !== old.id && (mirrorOf({ id: d.id, ...d.data() }) || {}).id === m.id)) return;
+    const ex = await getDoc(deptDoc(m.id));
+    if (ex.exists() && ex.data().src === 'gather') await deleteDoc(deptDoc(m.id));
+  } catch (e) { }
+}
+const synced = new Set();       // 이 기능 전에 등록한 것도 한 번씩 넣어 줌
+function backfill(list) { list.forEach(it => { const m = mirrorOf(it); if (!m || synced.has(it.id + m.id)) return; synced.add(it.id + m.id); putMirror(it).catch(() => synced.delete(it.id + m.id)) }) }
 
 /* ---------- 정렬 · 한 줄 요약 ---------- */
 const teamRank = t => { const i = TEAMS.indexOf(t); return i < 0 ? 9 : i };
@@ -90,7 +128,7 @@ function watch() {
   unsub = onSnapshot(query(box(), where('kind', '==', k), where('period', '==', p)), s => {
     if (!document.getElementById('g-root')) { unsub && unsub(); unsub = null; return }
     if (k !== kind || p !== periodOf(kind)) return;
-    items = s.docs.map(d => ({ id: d.id, ...d.data() })); renderList();
+    items = s.docs.map(d => ({ id: d.id, ...d.data() })); renderList(); backfill(items);
   }, () => { const l = document.getElementById('g-list'); if (l) l.innerHTML = '<p class="g-empty">목록을 불러오지 못했어요.</p>' });
 }
 function paint() {
@@ -161,8 +199,18 @@ async function onSubmit(e) {
   else t = base;
   if (v.team) ls.set('g-team', v.team); if (v.ext) ls.set('g-ext', v.ext.trim());
   try {
-    if (editId) { await updateDoc(itemDoc(editId), t); C.toast('수정했어요') }
-    else { await setDoc(itemDoc(newId()), { ...t, created: Date.now() }); C.toast('등록했어요') }
+    if (editId) {
+      const old = items.find(x => x.id === editId), id = editId;
+      await updateDoc(itemDoc(id), t);
+      const nu = { ...old, ...t, id };
+      if (old && (mirrorOf(old) || {}).id !== (mirrorOf(nu) || {}).id) await dropMirror(old, id);
+      await putMirror(nu).catch(() => { });
+      C.toast('수정했어요' + (mirrorOf(nu) ? ' · 과 주요일정에도 반영' : ''));
+    } else {
+      const id = newId(); await setDoc(itemDoc(id), { ...t, created: Date.now() });
+      await putMirror({ ...t, id }).catch(() => { }); synced.add(id + ((mirrorOf({ ...t, id }) || {}).id || ''));
+      C.toast('등록했어요' + (mirrorOf({ ...t, id }) ? ' · 과 주요일정에도 들어갔어요' : ''));
+    }
     editId = null; renderForm(); const f = document.getElementById('g-form'); f && f.querySelector('[name=title]') && f.querySelector('[name=title]').focus();
   } catch (err) { C.toast('저장하지 못했어요') }
 }
@@ -180,7 +228,7 @@ async function onClick(e) {
   if (t.closest('[data-g-cancel]')) { editId = null; renderForm(); renderList(); return }
   const dl = t.closest('[data-g-del]'); if (dl) {
     if (delAsk !== dl) { delAsk = dl; dl.textContent = '한 번 더'; dl.classList.add('ask'); clearTimeout(delTm); delTm = setTimeout(() => { delAsk = null; dl.textContent = '삭제'; dl.classList.remove('ask') }, 3000); return }
-    delAsk = null; try { await deleteDoc(itemDoc(dl.dataset.gDel)); if (editId === dl.dataset.gDel) { editId = null; renderForm() } C.toast('삭제했어요') } catch (err) { C.toast('삭제하지 못했어요') } return;
+    delAsk = null; try { const old = items.find(x => x.id === dl.dataset.gDel); await deleteDoc(itemDoc(dl.dataset.gDel)); if (old) await dropMirror(old, old.id); if (editId === dl.dataset.gDel) { editId = null; renderForm() } C.toast('삭제했어요') } catch (err) { C.toast('삭제하지 못했어요') } return;
   }
   if (t.closest('[data-g-hwp]')) { downloadHwp(); return }
   if (t.closest('[data-g-print]')) { printNow(); return }
