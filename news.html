@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>오늘의 교육 뉴스 · 단단이</title>
+<meta name="theme-color" content="#1e88d6">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 카톡 '뉴스 전체 보기'로 바로 오는 휴대폰용 뉴스 화면 */
+:root{
+  --bg:#f0f8ff; --surface:#fff; --line:#d3e7f7; --fg:#1d2b3a; --muted:#6b8196; --accent:#1e88d6; --accent-soft:#e1f1fd;
+  --font:"IBM Plex Sans KR",system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; color-scheme:light;
+}
+*{box-sizing:border-box}
+html{background:#eef8fd}
+body{margin:0;min-height:100vh;background:linear-gradient(160deg,#e3f2ff 0%,#f4fbff 50%,#e6f8f6 100%) fixed;color:var(--fg);font-family:var(--font);font-size:15px;line-height:1.6;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+[hidden]{display:none!important}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:8px 14px;touch-action:manipulation}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button:active{transform:scale(.97)}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;color:var(--muted)}
+.top a{color:var(--muted);text-decoration:none}
+h1{margin:0;font-size:24px;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:14px;margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 4px 18px rgba(30,136,214,.06)}
+.news{list-style:none;margin:0;padding:0}
+.news li{padding:12px 0;border-top:1px solid var(--line)}
+.news li:first-child{border-top:0;padding-top:2px}
+.news li:last-child{padding-bottom:2px}
+.news a{color:var(--fg);text-decoration:none;font-weight:600;font-size:16px;line-height:1.5;overflow-wrap:anywhere;display:block}
+.news a:active{color:var(--accent)}
+.meta{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:4px;font-size:13px;color:var(--muted);align-items:center}
+.kwt{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:0 8px;font-size:12px;font-weight:600}
+.empty{color:var(--muted);text-align:center;padding:24px 4px}
+.kwbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.kwbar span{flex:1;min-width:0}
+.kwbox{display:flex;flex-direction:column;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;background:var(--accent-soft);border-radius:999px;padding:4px 4px 4px 12px;font-size:14px}
+.chip button{border:0;background:none;width:28px;height:28px;border-radius:50%;padding:0;color:var(--muted);font-size:16px;line-height:1}
+.add{display:flex;gap:6px}.add input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#f7fbff}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.row{display:flex;gap:8px;align-items:center}.row .sp{flex:1}
+.login{display:flex;flex-direction:column;gap:10px}
+.login h2{margin:0;font-size:18px}.login p{margin:0;color:var(--muted);font-size:14px}
+.login form{display:flex;gap:8px}.login input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#f7fbff}
+.msg{color:#d9480f;font-size:13px;min-height:1em}
+.more{display:block;width:100%;margin-top:8px;color:var(--accent);font-weight:600}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d2b3a;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:9;max-width:calc(100% - 32px);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><a href="./">← 단단이 처음 화면</a><span id="me"></span></div>
+  <div><h1>오늘의 교육 뉴스</h1><div class="sub" id="sub">불러오는 중…</div></div>
+
+  <section class="card login" id="login" hidden aria-labelledby="lt">
+    <h2 id="lt">이름을 입력해 주세요</h2>
+    <p>단단이에 들어갈 때 쓰는 이름이에요. 이 휴대폰에서는 다음부터 바로 열려요.</p>
+    <form id="lf"><input id="name" placeholder="예: 홍길동" maxlength="20" autocomplete="name" aria-label="이름" required><button class="primary" id="go">보기</button></form>
+    <div id="cf" hidden><p><b id="nn"></b>(으)로 처음 들어오셨어요. 이름을 똑같이(띄어쓰기 포함) 썼는지 확인해 주세요.</p>
+      <div class="row" style="margin-top:6px"><button type="button" class="primary" id="yes">새로 시작</button><button type="button" id="no">다시 입력</button></div></div>
+    <div class="msg" id="msg" role="alert"></div>
+  </section>
+
+  <section class="card" id="kwcard" hidden>
+    <div class="kwbar" id="kwbar"><span id="kwline"></span><button type="button" id="kwopen">⚙ 키워드 설정</button></div>
+    <div class="kwbox" id="kwbox" hidden>
+      <b>내 뉴스 키워드</b>
+      <div class="chips" id="chips"></div>
+      <form class="add" id="addf"><input id="kwin" maxlength="20" placeholder="키워드 넣기 (예: 고교학점제)" aria-label="새 키워드" enterkeyhint="done"><button type="submit">추가</button></form>
+      <p class="note">최대 12개 · 나에게만 적용돼요(업무일정표 · 카톡 뉴스도). 새로 넣은 키워드의 기사는 다음 날 아침 7시부터 모여요.</p>
+      <div class="row"><button type="button" id="kwdef">기본값으로</button><span class="sp"></span><button type="button" id="kwcancel">취소</button><button type="button" class="primary" id="kwsave">저장</button></div>
+    </div>
+  </section>
+
+  <section class="card" id="listcard" hidden><ul class="news" id="list"></ul></section>
+</div>
+
+<script type="module">
+const V='?v='+Date.now();
+const [{ firebaseConfig },{ ready, savedWho, enterByName, whoError, ensurePin }]=await Promise.all([import('./config.js'+V),import('./who.js'+V)]);
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0'), ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const DEFAULT_KW=['한국교총','전교조','교사노조','교원단체','교권','경남교육청'];
+const toast=t=>{const e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),2600)};
+const when=ms=>{const d=new Date(ms),t=pad(d.getHours())+':'+pad(d.getMinutes()),k=ymd(d),y=new Date();y.setDate(y.getDate()-1);return k===ymd(new Date())?'오늘 '+t:k===ymd(y)?'어제 '+t:(d.getMonth()+1)+'/'+d.getDate()+' '+t};
+
+const app=initializeApp(firebaseConfig), auth=getAuth(app), fs=getFirestore(app);
+let me=null, kw=DEFAULT_KW.slice(), draft=[], nd=null, old=false;
+
+async function loadKw(){
+  try{const s=await getDoc(doc(fs,'personal',me.id,'meta','news'));const k=s.exists()&&s.data().keywords;if(Array.isArray(k)&&k.length)return k;
+      const g=await getDoc(doc(fs,'settings','news'));const b=g.exists()&&g.data().keywords;if(Array.isArray(b)&&b.length)return b}catch(e){}
+  return DEFAULT_KW.slice();
+}
+async function loadNews(){
+  for(let i=0;i<=5;i++){const d=new Date();d.setDate(d.getDate()-i);try{const s=await getDoc(doc(fs,'news',ymd(d)));if(s.exists()){nd=s.data();old=i>0;return}}catch(e){break}}
+  nd=null;
+}
+function render(){
+  $('kwline').textContent='내 키워드: '+kw.join(', ');
+  $('listcard').hidden=false;
+  if(!nd){$('sub').textContent='';$('list').innerHTML='<li class="empty">아직 모은 뉴스가 없어요. 평일 아침 7시쯤 자동으로 모여요.</li>';return}
+  const items=(nd.items||[]).filter(it=>!it.kw||!it.kw.length||it.kw.some(x=>kw.includes(x)));
+  $('sub').textContent=(old?'최근 · ':'')+(nd.label||'')+' · '+items.length+'건';
+  $('list').innerHTML=items.length?items.map(it=>'<li><a href="'+esc(it.link)+'" target="_blank" rel="noopener">'+esc(it.title)+'</a><div class="meta"><span>'+esc(it.source||'')+'</span><span>'+when(it.pub)+'</span>'+(it.kw||[]).filter(x=>kw.includes(x)).map(x=>'<span class="kwt">'+esc(x)+'</span>').join('')+'</div></li>').join('')
+    :'<li class="empty">키워드에 맞는 기사가 없었어요.<br>위의 ⚙ 키워드 설정에서 키워드를 바꿔 보세요.</li>';
+}
+async function start(w){
+  me=w; $('login').hidden=true; $('me').textContent=w.name+' 님'; $('kwcard').hidden=false;
+  $('sub').textContent='불러오는 중…';
+  [kw]=await Promise.all([loadKw(),loadNews()]); render();
+}
+
+/* 키워드 설정 */
+const chips=()=>{$('chips').innerHTML=draft.length?draft.map((x,i)=>'<span class="chip">'+esc(x)+'<button type="button" data-x="'+i+'" aria-label="'+esc(x)+' 빼기">×</button></span>').join(''):'<span class="note">키워드가 없어요. 아래에 넣어 주세요.</span>'};
+const addKw=v=>{for(const x of String(v||'').split(/[,\n]/).map(s=>s.trim().replace(/^#/,'')).filter(Boolean)){if(draft.includes(x))continue;if(draft.length>=12){toast('키워드는 12개까지예요');break}draft.push(x)}chips()};
+$('kwopen').onclick=()=>{draft=kw.slice();chips();$('kwbox').hidden=false;$('kwbar').hidden=true};
+$('kwcancel').onclick=()=>{$('kwbox').hidden=true;$('kwbar').hidden=false};
+$('kwdef').onclick=()=>{draft=DEFAULT_KW.slice();chips()};
+$('chips').onclick=e=>{const b=e.target.closest('[data-x]');if(!b)return;draft.splice(+b.dataset.x,1);chips()};
+$('addf').onsubmit=e=>{e.preventDefault();addKw($('kwin').value);$('kwin').value=''};
+$('kwsave').onclick=async()=>{
+  if($('kwin').value.trim()){addKw($('kwin').value);$('kwin').value=''}
+  if(!draft.length){toast('키워드를 하나 이상 넣어 주세요');return}
+  $('kwsave').disabled=true;
+  try{await setDoc(doc(fs,'personal',me.id,'meta','news'),{keywords:draft.slice(0,12),updated:Date.now(),byName:me.name});
+      kw=draft.slice(0,12);$('kwbox').hidden=true;$('kwbar').hidden=false;render();toast('저장했어요. 새 키워드는 내일 아침 뉴스부터 모여요')}
+  catch(e){toast('저장하지 못했어요. 잠시 뒤 다시 해 주세요')}
+  $('kwsave').disabled=false;
+};
+
+/* 이름으로 들어가기 (처음 한 번) */
+let pending='';
+async function go(create){
+  $('msg').textContent='';$('go').disabled=true;
+  try{const r=await enterByName(fs,create?pending:$('name').value,{create});
+      if(r.isNew){pending=r.name;$('nn').textContent=r.name;$('cf').hidden=false;return}
+      await start(r)}
+  catch(e){$('msg').textContent=whoError(e)}
+  finally{$('go').disabled=false}
+}
+$('lf').addEventListener('submit',e=>{e.preventDefault();go(false)});
+$('yes').onclick=()=>go(true);
+$('no').onclick=()=>{$('cf').hidden=true;$('name').select()};
+
+ready(auth).then(async()=>{const w=savedWho();if(w){await ensurePin(fs,w);await start(w)}else{$('sub').textContent='';$('login').hidden=false}})
+  .catch(e=>{$('sub').textContent='';$('login').hidden=false;$('msg').textContent=whoError(e)});
+</script>
+</body>
+</html>
