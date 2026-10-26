@@ -677,11 +677,15 @@ $('fab').onclick=()=>openAdd(selDay>=TODAY?selDay:TODAY);
 /* 아래 창 */
 function openSheet(html,label,wide){$('sheet').classList.toggle('wide',wide==='wide');$('sheet').innerHTML=html;$('sheet').setAttribute('aria-label',label);$('sheet-wrap').hidden=false;setTimeout(()=>{const f=$('sheet').querySelector('input.big,button.btn.primary,input');if(f)f.focus()},30)}
 function closeSheet(){$('sheet-wrap').hidden=true}
-$('sheet-wrap').addEventListener('click',e=>{if(e.target===$('sheet-wrap')||e.target.closest('[data-close]')){closeSheet();return}
+// 바깥(어두운 곳)을 눌러 닫기: 누르기 시작한 곳과 뗀 곳이 모두 바깥일 때만.
+// 글을 쓰는 큰 창(공지 보내기 · 업무 취합)은 바깥을 눌러도 닫히지 않고 '닫기' 버튼으로만 닫혀요.
+let sheetDown=null; $('sheet-wrap').addEventListener('pointerdown',e=>{sheetDown=e.target},true);
+$('sheet-wrap').addEventListener('click',e=>{if(e.target.closest('[data-close]')){closeSheet();return}
+  if(e.target===$('sheet-wrap')){const ok=sheetDown===$('sheet-wrap')&&!$('sheet').classList.contains('wide');sheetDown=null;if(ok)closeSheet();return}
   const ev=e.target.closest('.ev[data-id]');if(ev){openEdit(ev.dataset.o,ev.dataset.id);return}
   const ad=e.target.closest('[data-add-day]');if(ad){openAdd(ad.dataset.addDay);return}
   const bk=e.target.closest('[data-back]');if(bk){FULL?openDay(bk.dataset.back):closeSheet()}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet-wrap').hidden)closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet-wrap').hidden&&!$('sheet').classList.contains('wide'))closeSheet()});
 const swatchHTML=cur=>'<div class="sws">'+[['','def'],...CKEYS.map(c=>[c,c])].map(([v,c])=>'<label class="c-'+c+'" title="'+(v?CNAME[v]:'기본')+'"><input type="radio" name="col" value="'+v+'"'+((cur||'')===v?' checked':'')+'><span></span></label>').join('')+'</div>';
 const stamp=()=>({by:me.uid,byName:nameOf(me.uid),updated:Date.now()});
 function openAdd(k){
