@@ -95,16 +95,71 @@ function renderSent() {
   }).join('');
 }
 
-/* ---------- 오늘의 뉴스 ---------- */
-export async function openNews() {
-  C.openSheet('<h2>오늘의 교육 뉴스</h2><div class="nw-list" id="nw-list"><p class="g-empty">불러오는 중…</p></div><div class="acts"><span class="meta" id="nw-kw" style="margin-right:auto"></span><button type="button" class="btn primary" data-close>닫기</button></div>', '오늘의 교육 뉴스', 'wide');
-  let kw = DEFAULT_KW;
-  try { const s = await getDoc(doc(C.fs, 'personal', C.me.uid, 'meta', 'news')); const k = s.exists() && s.data().keywords; if (Array.isArray(k) && k.length) kw = k; else { const g = await getDoc(doc(C.fs, 'settings', 'news')); const b = g.exists() && g.data().keywords; if (Array.isArray(b) && b.length) kw = b } } catch (e) { }
+/* ---------- 오늘의 뉴스 (+ 내 키워드 설정) ---------- */
+const KW_CSS = '.kw-box{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:10px 12px;margin:0 0 10px;display:flex;flex-direction:column;gap:8px}' +
+  '.kw-box[hidden]{display:none}.kw-chips{display:flex;flex-wrap:wrap;gap:6px}' +
+  '.kw-chip{display:inline-flex;align-items:center;gap:2px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 10px;font-size:13px}' +
+  '.kw-chip button{border:0;background:none;color:var(--muted);width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1}.kw-chip button:hover{background:#ffe3e3;color:#c92a2a}' +
+  '.kw-add{display:flex;gap:6px}.kw-add input{flex:1;min-width:0;border:1px solid var(--line)!important;border-radius:8px;padding:7px 10px!important;background:#fff!important;font:inherit}' +
+  '.kw-note{font-size:12px;color:var(--muted);margin:0}.kw-row{display:flex;gap:6px;align-items:center}.kw-row .sp{flex:1}' +
+  '.nw-kwbtn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}.nw-kwbtn:hover{background:var(--accent-soft)}';
+function kwStyle() { if (document.getElementById('kw-css')) return; const s = document.createElement('style'); s.id = 'kw-css'; s.textContent = KW_CSS; document.head.appendChild(s) }
+async function loadKw() {
+  try {
+    const s = await getDoc(doc(C.fs, 'personal', C.me.uid, 'meta', 'news')); const k = s.exists() && s.data().keywords;
+    if (Array.isArray(k) && k.length) return { kw: k, mine: true };
+    const g = await getDoc(doc(C.fs, 'settings', 'news')); const b = g.exists() && g.data().keywords;
+    if (Array.isArray(b) && b.length) return { kw: b, mine: false };
+  } catch (e) { }
+  return { kw: DEFAULT_KW.slice(), mine: false };
+}
+export async function openNews(opts = {}) {
+  kwStyle();
+  C.openSheet('<h2>오늘의 교육 뉴스</h2>' +
+    '<div class="kw-box" id="kw-box" hidden><b style="font-size:14px">내 뉴스 키워드</b>' +
+    '<div class="kw-chips" id="kw-chips"></div>' +
+    '<form class="kw-add" id="kw-add"><input id="kw-in" maxlength="20" placeholder="키워드 넣고 Enter (예: 교원단체)" aria-label="새 키워드"><button type="submit" class="btn">추가</button></form>' +
+    '<p class="kw-note">최대 12개 · 나에게만 적용돼요(카톡 뉴스도). 새로 넣은 키워드의 기사는 <b>다음 날 아침 7시</b> 뉴스부터 모여요.</p>' +
+    '<div class="kw-row"><button type="button" class="btn" id="kw-def">기본값으로</button><span class="sp"></span><button type="button" class="btn" id="kw-cancel">취소</button><button type="button" class="btn primary" id="kw-save">저장</button></div></div>' +
+    '<div class="nw-list" id="nw-list"><p class="g-empty">불러오는 중…</p></div>' +
+    '<div class="acts"><span class="meta" id="nw-kw" style="margin-right:auto"></span><button type="button" class="nw-kwbtn" id="nw-kwbtn">⚙ 키워드 설정</button><button type="button" class="btn primary" data-close>닫기</button></div>', '오늘의 교육 뉴스', 'wide');
+  let { kw } = await loadKw();
+  let draft = kw.slice();
+  const $ = id => document.getElementById(id);
+  const box = $('kw-box'); if (!box) return;
+  const chips = () => { $('kw-chips').innerHTML = draft.length ? draft.map((x, i) => '<span class="kw-chip">' + esc(x) + '<button type="button" data-kw-x="' + i + '" aria-label="' + esc(x) + ' 빼기">×</button></span>').join('') : '<span class="kw-note">키워드가 없어요. 아래에 넣어 주세요.</span>' };
+  const openBox = () => { draft = kw.slice(); chips(); box.hidden = false; $('nw-kwbtn').hidden = true; setTimeout(() => $('kw-in').focus(), 0) };
+  const closeBox = () => { box.hidden = true; $('nw-kwbtn').hidden = false };
+  const add = v => {
+    const list = String(v || '').split(/[,\n]/).map(x => x.trim().replace(/^#/, '')).filter(Boolean);
+    for (const x of list) { if (draft.includes(x)) continue; if (draft.length >= 12) { C.toast('키워드는 12개까지예요'); break } draft.push(x) }
+    chips();
+  };
+  $('nw-kwbtn').onclick = openBox;
+  $('kw-cancel').onclick = closeBox;
+  $('kw-def').onclick = () => { draft = DEFAULT_KW.slice(); chips() };
+  $('kw-chips').onclick = e => { const b = e.target.closest('[data-kw-x]'); if (!b) return; draft.splice(+b.dataset.kwX, 1); chips() };
+  $('kw-add').onsubmit = e => { e.preventDefault(); add($('kw-in').value); $('kw-in').value = ''; $('kw-in').focus() };
+  $('kw-save').onclick = async () => {
+    if ($('kw-in').value.trim()) { add($('kw-in').value); $('kw-in').value = '' }
+    if (!draft.length) { C.toast('키워드를 하나 이상 넣어 주세요'); return }
+    const b = $('kw-save'); b.disabled = true;
+    try {
+      await setDoc(doc(C.fs, 'personal', C.me.uid, 'meta', 'news'), { keywords: draft.slice(0, 12), updated: Date.now(), byName: (C.me && C.me.name) || '' });
+      kw = draft.slice(0, 12); closeBox(); render(); C.toast('키워드를 저장했어요. 새 키워드는 내일 아침 뉴스부터 모여요');
+    } catch (e) { C.toast('저장하지 못했어요. 잠시 뒤 다시 해 주세요') }
+    b.disabled = false;
+  };
+  if (opts.edit) openBox();
+
   let nd = null, old = false;
   for (let i = 0; i <= 5 && !nd; i++) { const d = new Date(); d.setDate(d.getDate() - i); try { const s = await getDoc(doc(C.fs, 'news', ymd(d))); if (s.exists()) { nd = s.data(); old = i > 0 } } catch (e) { break } }
-  const el = document.getElementById('nw-list'); if (!el) return;
-  const k = document.getElementById('nw-kw'); if (k) k.textContent = '내 키워드: ' + kw.join(', ');
-  if (!nd) { el.innerHTML = '<p class="g-empty">아직 모은 뉴스가 없어요. 평일 아침 7시쯤 자동으로 모여요.</p>'; return }
-  const items = (nd.items || []).filter(it => !it.kw || !it.kw.length || it.kw.some(x => kw.includes(x)));
-  el.innerHTML = '<p class="meta" style="margin:0 0 6px">' + (old ? '최근 · ' : '') + esc(nd.label || '') + ' · ' + items.length + '건</p>' + (items.length ? '<ul class="nw">' + items.map(it => '<li><a href="' + esc(it.link) + '" target="_blank" rel="noopener">' + esc(it.title) + '</a><small>' + esc(it.source || '') + ' · ' + when(it.pub) + ((it.kw || []).filter(x => kw.includes(x)).map(x => ' · #' + esc(x)).join('')) + '</small></li>').join('') + '</ul>' : '<p class="g-empty">키워드에 맞는 기사가 없었어요.</p>');
+  function render() {
+    const el = $('nw-list'); if (!el) return;
+    const k = $('nw-kw'); if (k) k.textContent = '내 키워드: ' + kw.join(', ');
+    if (!nd) { el.innerHTML = '<p class="g-empty">아직 모은 뉴스가 없어요. 평일 아침 7시쯤 자동으로 모여요.</p>'; return }
+    const items = (nd.items || []).filter(it => !it.kw || !it.kw.length || it.kw.some(x => kw.includes(x)));
+    el.innerHTML = '<p class="meta" style="margin:0 0 6px">' + (old ? '최근 · ' : '') + esc(nd.label || '') + ' · ' + items.length + '건</p>' + (items.length ? '<ul class="nw">' + items.map(it => '<li><a href="' + esc(it.link) + '" target="_blank" rel="noopener">' + esc(it.title) + '</a><small>' + esc(it.source || '') + ' · ' + when(it.pub) + ((it.kw || []).filter(x => kw.includes(x)).map(x => ' · #' + esc(x)).join('')) + '</small></li>').join('') + '</ul>' : '<p class="g-empty">키워드에 맞는 기사가 없었어요. <b>⚙ 키워드 설정</b>에서 키워드를 바꿔 보세요.</p>');
+  }
+  render();
 }
