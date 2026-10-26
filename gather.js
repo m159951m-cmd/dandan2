@@ -104,7 +104,10 @@ function ilamLines(it) {
   return L;
 }
 const eventWhen = it => it.end && it.end > it.date ? hd(it.date) + (it.time ? ' ' + it.time : '') + ' ~ ' + hd(it.end) : hd(it.date) + (it.time ? ' ' + it.time : '');
-const monthText = it => { const inside = [it.time, it.place].filter(Boolean).join(', '); return '∎' + it.title + (inside ? '(' + inside + ')' : '') };
+// 과 월간 계획 예시와 같은 모양: "∎행사명(장소, 14:00~, ~6/5)" — 여러 날이면 시작하는 날에만 적고 끝나는 날을 "~6/5"로
+const monthRange = it => { if (!(it.end && it.end > it.date)) return ''; const b = parse(it.end); return '~' + (b.getMonth() + 1) + '/' + b.getDate() };
+const monthTime = t => !t ? '' : /~/.test(t) ? t : t + '~';
+const monthText = it => { const inside = [it.place, monthTime(it.time), monthRange(it)].filter(Boolean).join(', '); return '∎' + it.title + (inside ? '(' + inside + ')' : '') };
 const monthOwner = it => (it.team || '') + (it.owner ? '(' + it.owner + ')' : '');
 
 /* ---------- 화면 ---------- */
@@ -182,7 +185,7 @@ function renderForm(pre) {
       '<label class="fl">바. 홍보계획' + sel('promo', [['보도자료 제공', '보도자료 제공'], ['없음', '없음']], it.promo || '없음') + '</label>';
   } else {
     const days = monthDays(month);
-    h += '<div class="row2"><label class="fl">날짜' + sel('date', days.map(k => [k, mdd(k)]), it.date || days[0]) + '</label><label class="fl">담당 팀' + sel('team', TEAMS.map(t => [t, t]), team) + '</label></div>' +
+    h += '<div class="row3"><label class="fl">날짜 (시작일)' + sel('date', days.map(k => [k, mdd(k)]), it.date || days[0]) + '</label><label class="fl">끝나는 날 · 여러 날이면<input type="date" name="end" value="' + esc(it.end || '') + '" min="' + esc(it.date || days[0]) + '"></label><label class="fl">담당 팀' + sel('team', TEAMS.map(t => [t, t]), team) + '</label></div>' +
       inp('title', '행사 · 업무 이름', it.title, '', true) + '<div class="row3">' + inp('time', '시간', it.time, '14:00') + inp('place', '장소', it.place) + inp('owner', '담당자', it.owner ?? C.me.name) + '</div>' +
 ''
   }
@@ -196,7 +199,7 @@ async function onSubmit(e) {
   let t;
   if (kind === 'ilam') t = { ...base, end: v.end && v.end > v.date ? v.end : '', type: v.type === 'trip' ? 'trip' : 'work', who: (v.who || '').trim(), content: (v.content || '').trim(), attend: (v.attend || '').trim() };
   else if (kind === 'event') t = { ...base, present: !!v.present, ext: (v.ext || '').trim(), purpose: (v.purpose || '').trim(), end: v.end && v.end > v.date ? v.end : '', target: (v.target || '').trim(), contents: String(v.contents || '').split('\n').map(s => s.replace(/^\s*[-·•]\s*/, '').trim()).filter(Boolean), promo: v.promo || '없음' };
-  else t = base;
+  else t = { ...base, end: v.end && v.end > v.date ? v.end : '' };
   if (v.team) ls.set('g-team', v.team); if (v.ext) ls.set('g-ext', v.ext.trim());
   try {
     if (editId) {
