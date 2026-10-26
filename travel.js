@@ -185,13 +185,15 @@ function fuelNote(t) {
   if (t.fuel.src) return '단가: ' + esc(t.fuel.src) + ' · 연료비 = 거리 × 단가 ÷ 연비 (10원 미만 버림)';
   if (F.key === 'ev') return '단가: <a href="' + EVURL + '" target="_blank" rel="noopener">무공해차 통합누리집</a> 기후에너지환경부 급속(100~199kW) 요금';
   if (!F.key) return '수소는 단가를 직접 넣어 주세요.';
-  return '<span class="tv-warn">' + md(t.start) + ' 오피넷 유가가 아직 등록되지 않았어요.</span> 담당자가 <a href="' + OPINET + '" target="_blank" rel="noopener">오피넷</a> 자료를 올리면 자동으로 계산돼요. 지금 직접 넣어도 돼요.';
+  const last = t.fuel.lastDay ? ' (지금 등록된 유가는 ' + md(t.fuel.lastDay) + '까지예요)' : '';
+  const today = t.start >= ymd(new Date()) ? ' 오늘 · 앞으로의 유가는 그날 밤에 자동으로 들어와요.' : '';
+  return '<span class="tv-warn">' + md(t.start) + ' 오피넷 유가가 아직 없어요' + last + '.</span>' + today + ' 담당자가 <a href="' + OPINET + '" target="_blank" rel="noopener">오피넷</a> 자료를 올리면 자동으로 계산돼요. 지금 직접 넣어도 돼요.';
 }
 async function refreshPrice() {
   const t = cur; if (!t.fuel.on) return;
   const r = await priceFor(t.fuel.type, t.start);
   if (cur !== t) return;
-  if (r) { t.fuel.price = r.p; t.fuel.src = r.src } else { t.fuel.src = ''; if (!t.fuel.priceManual) t.fuel.price = '' }
+  if (r) { t.fuel.price = r.p; t.fuel.src = r.src } else { t.fuel.src = ''; if (!t.fuel.priceManual) t.fuel.price = ''; const ks = Object.keys(await fuelYear(t.start.slice(0, 4))).sort(); t.fuel.lastDay = ks[ks.length - 1] || '' }
   const f = document.getElementById('tv-form'); if (!f) return;
   const pi = f.querySelector('[name=fprice]'); if (pi) pi.value = t.fuel.price;
   const n = document.getElementById('tv-fsrc'); if (n) n.innerHTML = fuelNote(t);
@@ -375,6 +377,7 @@ async function fuelPanel() {
   const w = document.createElement('div'); w.className = 'tv-pad-wrap';
   w.innerHTML = '<div class="tv-pad tv-fuelp"><h3>유가 자료</h3>' +
     '<p class="meta">' + y + '년 경남 평균판매가격: ' + (keys.length ? keys.length + '일치 (' + md(keys[0]) + ' ~ ' + md(keys[keys.length - 1]) + ')' : '아직 없어요') + '</p>' +
+    '<p class="meta">오피넷 유가정보 API를 연결해 두면 매일 밤 자동으로 들어와요 (GitHub fuel-daily). 연결 전이나 빠진 날은 아래처럼 파일로 올려요.</p>' +
     '<ol class="tv-steps"><li><a href="' + OPINET + '" target="_blank" rel="noopener">오피넷 평균판매가격</a> → <b>지역별</b> 탭 → 구분 <b>일간</b>, 지역 <b>경남</b>, 제품 <b>보통휘발유 · 자동차용경유 · LPG</b> → 기간 고르고 조회 → <b>엑셀저장</b>(또는 CSV저장)</li><li>받은 파일을 아래 버튼으로 올려요. 과 엑셀의 <b>주유소</b> 시트가 있는 파일을 올려도 돼요.</li></ol>' +
     '<button type="button" class="btn primary" data-up>오피넷 파일 올리기</button>' +
     '<h3 style="margin-top:14px">전기 충전 단가 (원/kWh)</h3><p class="meta"><a href="' + EVURL + '" target="_blank" rel="noopener">무공해차 통합누리집 충전요금</a>의 기후에너지환경부 급속 <b>100~199kW</b> 요금. 바뀌면 바뀐 날짜와 함께 넣어 주세요.</p>' +
@@ -396,6 +399,19 @@ const toKey = v => {
   if (/^\d{5}(\.\d+)?$/.test(s)) { const d = new Date(Date.UTC(1899, 11, 30) + Number(s) * 864e5); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) }
   return '';
 };
+// CSV 읽기 ("1,952.81" 처럼 따옴표 안의 쉼표도 처리)
+function csvRows(txt) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < txt.length; i++) {
+    const ch = txt[i];
+    if (q) { if (ch === '"') { if (txt[i + 1] === '"') { cell += '"'; i++ } else q = false } else cell += ch }
+    else if (ch === '"') q = true; else if (ch === ',' || ch === '\t') { row.push(cell.trim()); cell = '' }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && txt[i + 1] === '\n') i++; row.push(cell.trim()); rows.push(row); row = []; cell = '' }
+    else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell.trim()); rows.push(row) }
+  return rows;
+}
 async function readTable(file) {
   if (/\.xls$/i.test(file.name)) {   // 오피넷 '엑셀저장'은 표(HTML)로 된 .xls 파일인 경우가 많음
     const buf = await file.arrayBuffer(); let txt = new TextDecoder('utf-8').decode(buf); if (txt.includes('\ufffd')) txt = new TextDecoder('euc-kr').decode(buf);
@@ -404,7 +420,7 @@ async function readTable(file) {
   }
   if (/\.csv$/i.test(file.name)) {
     const buf = await file.arrayBuffer(); let txt = new TextDecoder('utf-8').decode(buf); if (txt.includes('�')) txt = new TextDecoder('euc-kr').decode(buf);
-    return txt.split(/\r?\n/).map(l => l.split(',').map(x => x.replace(/^"|"$/g, '').trim()));
+    return csvRows(txt);
   }
   if (!window.ExcelJS) await loadScript('lib/exceljs.min.js');
   const wb = new window.ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
@@ -416,20 +432,23 @@ async function importOpinet(file) {
   try {
     C.toast('유가 자료를 읽고 있어요');
     const rows = await readTable(file);
-    const hi = rows.findIndex(r => r.some(v => /보통휘발유|휘발유/.test(String(v))));
+    // 머리줄: 칸 하나가 통째로 '보통휘발유'(또는 '휘발유')이고, 칸이 3개 이상인 줄 (위쪽 설명 줄은 건너뜀)
+    const hi = rows.findIndex(r => r.filter(v => String(v ?? '').trim()).length >= 3 && r.some(v => /^(보통)?휘발유$/.test(String(v ?? '').replace(/\s/g, ''))));
     if (hi < 0) throw new Error('보통휘발유 칸을 찾지 못했어요');
     const H = rows[hi].map(v => String(v || '').replace(/\s/g, ''));
     const col = re => H.findIndex(h => re.test(h));
-    const cd = col(/기간|일자|날짜|구분/), cg = col(/보통휘발유/) >= 0 ? col(/보통휘발유/) : col(/휘발유/), cs = col(/경유/), cl = col(/LPG|부탄/);
+    const cd = col(/^(기간|일자|날짜|구분|일시)$/), cg = col(/^보통휘발유$/) >= 0 ? col(/^보통휘발유$/) : col(/^휘발유$/), cs = col(/^(자동차용)?경유$/), cl = col(/LPG|부탄/);
     const byYear = {}; let n = 0;
     for (const r of rows.slice(hi + 1)) {
       const k = toKey(r[cd >= 0 ? cd : 0]); if (!k) continue;
-      const g = num(r[cg]), d = cs >= 0 ? num(r[cs]) : 0, l = cl >= 0 ? num(r[cl]) : 0; if (!g && !d && !l) continue;
+      const ok = x => x > 300 && x < 5000 ? x : 0;   // 원/ℓ 범위를 벗어난 값은 버림
+      const g = ok(num(r[cg])), d = cs >= 0 ? ok(num(r[cs])) : 0, l = cl >= 0 ? ok(num(r[cl])) : 0; if (!g && !d && !l) continue;
       (byYear[k.slice(0, 4)] = byYear[k.slice(0, 4)] || {})[k] = { ...(g ? { g } : {}), ...(d ? { d } : {}), ...(l ? { l } : {}) }; n++;
     }
     if (!n) throw new Error('날짜별 가격을 찾지 못했어요');
     for (const [y, days] of Object.entries(byYear)) { const old = await fuelYear(y); const merged = { ...old, ...days }; await setDoc(doc(C.fs, 'settings', 'fuel-' + y), { days: merged, updated: Date.now(), byName: C.me.name }); fuelCache[y] = merged }
-    C.toast('유가 ' + n + '일치를 저장했어요');
+    const ks = Object.values(byYear).flatMap(o => Object.keys(o)).sort();
+    C.toast('유가 ' + n + '일치를 저장했어요 (' + md(ks[0]) + ' ~ ' + md(ks[ks.length - 1]) + ')');
     if (cur && cur.fuel.on && !cur.fuel.priceManual) refreshPrice();
   } catch (e) { console.error(e); C.toast('유가 자료를 읽지 못했어요: ' + (e.message || '')) }
 }
