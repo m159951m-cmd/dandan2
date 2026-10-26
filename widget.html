@@ -444,7 +444,7 @@ import { initNotice, openNoticeComposer, openNews, noticePending, noticeAck, not
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { ready, savedWho, enterByName, whoError } from "./who.js";
+import { ready, savedWho, enterByName, whoError, ensurePin } from "./who.js";
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app=initializeApp(firebaseConfig), auth=getAuth(app), fs=getFirestore(app);
 
@@ -505,7 +505,7 @@ ready(auth).then(async()=>{
   // 주소에 ?name=이름 이 있으면 그 이름으로 바로 들어감 (바탕화면 일정표용)
   const qn=(QS.get('name')||'').trim(); let w=savedWho();
   if(qn&&(!w||w.name.replace(/\s/g,'')!==qn.replace(/\s/g,''))){try{const r=await enterByName(fs,qn,{create:false});if(!r.isNew)w=r}catch(e){}}
-  if(w)startApp({uid:w.id,name:w.name});else{$('login').hidden=false;$('app').hidden=true;if(qn)$('le').value=qn}}).catch(e=>{$('login').hidden=false;$('lmsg').textContent=whoError(e)});
+  if(w){await ensurePin(fs,w);startApp({uid:w.id,name:w.name})}else{$('login').hidden=false;$('app').hidden=true;if(qn)$('le').value=qn}}).catch(e=>{$('login').hidden=false;$('lmsg').textContent=whoError(e)});
 function watchAll(){const cutoff=ymd(addDays(new Date(),-120));[...new Set([...visible(),me.uid,PK,...(profiles.dept?['dept']:[])])].forEach(o=>{if(subs[o])return;subs[o]=onSnapshot(query(collection(fs,...pathOf(o),'tasks'),where('date','>=',cutoff)),s=>{data[o]=s.docs.map(d=>({id:d.id,...d.data()}));render()})})}
 function watchMenu(k){if(menuSubs[k])return;menuSubs[k]=onSnapshot(doc(fs,'menus',k),s=>{menus[k]=s.exists()?s.data():null;render()},()=>{menus[k]=null})}
 function lunchOf(k){const d=parse(k);const mk=d.getFullYear()+'-'+pad(d.getMonth()+1);watchMenu(mk);const M=menus[mk];if(!M||!M.days)return null;return M.days[String(d.getDate())]||null}

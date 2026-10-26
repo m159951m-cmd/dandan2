@@ -162,7 +162,7 @@ import { firebaseConfig, collectUrl } from "./config.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { ready, savedWho, forgetWho, enterByName, whoError } from "./who.js";
+import { ready, savedWho, forgetWho, enterByName, whoError, ensurePin } from "./who.js";
 const $=id=>document.getElementById(id);
 if(collectUrl){$('collect').href=collectUrl}else{const a=$('collect');a.removeAttribute('href');a.removeAttribute('target');a.style.opacity=.6;a.querySelector('.go').textContent='config.js에 주소를 넣으면 열려요'}
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){$('msg').textContent='config.js에 Firebase 연결 정보를 넣어 주세요.';$('login').hidden=false;throw new Error('config')}
@@ -194,7 +194,7 @@ $('login-form').addEventListener('submit',e=>{e.preventDefault();go(false)});
 $('yes').onclick=()=>go(true);
 $('no').onclick=()=>{$('confirm').hidden=true;$('name').select()};
 $('switch').onclick=()=>{forgetWho();showLogin()};
-ready(auth).then(()=>{const w=savedWho(); w?showMenu(w):showLogin()}).catch(e=>{showLogin();$('msg').textContent=whoError(e)});
+ready(auth).then(async()=>{const w=savedWho(); if(w){await ensurePin(fs,w);showMenu(w)}else showLogin()}).catch(e=>{showLogin();$('msg').textContent=whoError(e)});
 </script>
 </body>
 </html>

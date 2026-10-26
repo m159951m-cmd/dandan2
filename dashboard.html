@@ -846,7 +846,7 @@ if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.inne
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { ready as authReady, savedWho, forgetWho, enterByName, whoError } from "./who.js";
+import { ready as authReady, savedWho, forgetWho, enterByName, whoError, ensurePin } from "./who.js";
 import { readHwpx, parseIlam } from "./ilam.js";
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -1015,7 +1015,7 @@ async function startApp(u){
   $('news-panel').hidden=!isPersonal; $('boss-panel').hidden=isPersonal; $('ilam-bar').hidden=isPersonal;
   checkMove();
 }
-authReady(auth).then(()=>{const w=savedWho(); if(w)startApp({uid:w.id,name:w.name}); else {$('login').hidden=false;$('app').hidden=true;setTimeout(()=>$('login-name').focus(),0)}}).catch(e=>{$('login').hidden=false;$('login-msg').textContent=whoError(e)});
+authReady(auth).then(async()=>{const w=savedWho(); if(w){await ensurePin(fs,w);startApp({uid:w.id,name:w.name})} else {$('login').hidden=false;$('app').hidden=true;setTimeout(()=>$('login-name').focus(),0)}}).catch(e=>{$('login').hidden=false;$('login-msg').textContent=whoError(e)});
 /* 30명이 쓰면 사용량이 커서, 보고 있는 사람의 일정만 불러옴 (최근 120일 이후 일정) */
 function watchNeeded(){
   if(!me)return;
