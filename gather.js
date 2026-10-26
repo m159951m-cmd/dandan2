@@ -115,7 +115,7 @@ export function openGather(k) {
   if (k) kind = k;
   week = week || nextWeekKey(); month = month || monthDefault(); editId = null;
   C.openSheet('<div id="g-root" class="g-root"><div class="g-head"><h2>업무 취합</h2>' +
-    '<div class="g-tabs" role="tablist">' + Object.entries(KINDS).map(([k, n]) => '<button type="button" role="tab" data-g-kind="' + k + '">' + n + '</button>').join('') + '</div></div>' +
+    '<div class="g-tabs" role="tablist">' + Object.entries(KINDS).map(([k, n]) => '<button type="button" role="tab" data-g-kind="' + k + '">' + n + '</button>').join('') + '<button type="button" role="tab" data-g-travel>여비 정산</button></div></div>' +
     '<div class="g-period"><button type="button" class="icon" data-g-move="-1" aria-label="이전">‹</button><b id="g-plabel"></b><button type="button" class="icon" data-g-move="1" aria-label="다음">›</button><span class="g-count" id="g-count"></span></div>' +
     '<div class="g-body"><div class="g-list" id="g-list"></div><form class="g-form" id="g-form" autocomplete="off"></form></div>' +
     '<div class="acts g-acts"><button type="button" class="btn" data-g-print>인쇄 · PDF</button><button type="button" class="btn" data-g-hwp>한글 파일 받기</button><span class="sp"></span><button type="button" class="btn primary" data-close>닫기</button></div></div>', '업무 취합', 'wide');
@@ -220,6 +220,7 @@ async function onSubmit(e) {
 let delAsk = null, delTm = 0;
 async function onClick(e) {
   const t = e.target;
+  if (t.closest('[data-g-travel]')) { if (unsub) { unsub(); unsub = null } import('./travel.js').then(m => m.openTravel()); return }
   const kb = t.closest('[data-g-kind]'); if (kb) { if (kb.dataset.gKind !== kind) { kind = kb.dataset.gKind; editId = null; watch() } return }
   const mv = t.closest('[data-g-move]'); if (mv) {
     const n = Number(mv.dataset.gMove);
