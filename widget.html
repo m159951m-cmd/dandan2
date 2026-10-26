@@ -113,6 +113,48 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .sheet .owner{font-size:12.5px;color:var(--muted)}
 .btn.danger{color:#b42318;border-color:#f1c4bf}.btn.danger.ask{background:#b42318;border-color:#b42318;color:#fff}
 .acts .sp{flex:1}
+/* 여비 정산 */
+.tv-form fieldset{border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;margin:0;display:flex;flex-direction:column;gap:8px;background:#fff}
+.tv-form legend{font-weight:700;font-size:13.5px;padding:0 4px;color:var(--fg)}
+.tv-form .tv-sub{font-size:12px;color:var(--muted);font-weight:500}
+.tv-form input[type=number]{width:100%;border:0;border-bottom:1px solid var(--line);padding:7px 2px;background:transparent;font-size:14px}
+.tv-form input[readonly]{color:#0d4ea6;font-weight:700}
+.tv-hint,.tv-pad .meta{margin:0;font-size:12px;display:block!important;line-height:1.55}
+.tv-warn{color:#b4361a;font-weight:600}
+.tv-root .g-body{grid-template-columns:minmax(0,.85fr) minmax(0,1.3fr)}
+.tv-form input:not([type]),.tv-form input[type=date],.tv-form select{width:100%;border:0;border-bottom:1px solid var(--line);padding:7px 2px;background:transparent;min-width:0;font-size:14px;color:var(--fg)}
+.tv-form .fl{font-size:11.5px}
+.tv-fare{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:4px 8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
+.tv-fare button{justify-self:start}
+.tv-fare input,.tv-fare select{border:0;border-bottom:1px solid var(--line);padding:6px 2px;background:transparent;font-size:13.5px;min-width:0;width:100%}
+.tv-fares{display:flex;flex-direction:column;gap:4px}
+.tv-files{display:flex;flex-wrap:wrap;gap:6px}
+.tv-file{display:inline-flex;align-items:center;gap:6px;background:var(--soft);border-radius:999px;padding:4px 6px 4px 11px;font-size:13px}
+.tv-file.new{background:#e7f5ff}
+.tv-file button{border:0;background:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:1}
+.tv-up{align-self:flex-start;cursor:pointer}
+.tv-total{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
+.tv-total div{display:flex;flex-direction:column;font-size:12px;color:var(--muted)}
+.tv-total b{font-size:15px;color:var(--fg);font-family:var(--num)}
+.tv-total .all{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:8px;font-size:14px;color:var(--fg)}
+.tv-total .all b{font-size:22px;color:#0d4ea6}
+.tv-sign{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tv-sign-box{width:180px;height:64px;border:1px dashed #b9c3cc;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#fff;font-size:12px;color:var(--muted)}
+.tv-sign-box img{max-width:170px;max-height:56px}
+.tv-sign small{font-size:12px;color:var(--muted)}
+.tv-pickall{font-size:13px;color:var(--muted);padding:6px 4px;border-bottom:1px solid var(--line)}
+.tv-ck{margin-top:4px;width:16px;height:16px;flex:none}
+.tv-sum{color:#0d4ea6}
+.tv-acts{flex-wrap:wrap}
+.tv-form>.acts:last-child{position:sticky;bottom:-14px;background:var(--soft);padding:10px 0 4px;margin-top:4px;border-top:1px solid var(--line);z-index:2}
+.tv-open{color:#7a3e00}
+.tv-pad-wrap{position:fixed;inset:0;z-index:70;background:rgba(15,25,40,.45);display:flex;align-items:center;justify-content:center;padding:20px}
+.tv-pad{background:#fff;border-radius:18px;padding:20px 22px;max-width:620px;width:100%;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.tv-pad h3{margin:0}
+.tv-pad canvas{width:100%;height:auto;aspect-ratio:560/200;border:2px dashed #b9c3cc;border-radius:12px;touch-action:none;cursor:crosshair;background:#fff}
+.tv-steps{margin:0;padding-left:20px;font-size:13.5px;line-height:1.6}
+.tv-evl{margin:0;padding-left:18px;font-size:13.5px}
+@media (max-width:760px){.tv-fare{grid-template-columns:1fr 1fr}.tv-root .g-body{grid-template-columns:1fr}}
 .qr-mini{margin-right:6px}
 /* 위쪽 공지 · 뉴스 버튼 */
 .bar-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font-size:14px;font-weight:600;color:var(--fg);margin-right:6px;white-space:nowrap}
@@ -441,6 +483,7 @@ const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = C
 import { collectWatch, collectJoin, dueLabel, fmtDue } from "./collect.js";
 import { initGather, openGather, nextWeekKey } from "./gather.js";
 import { initNotice, openNoticeComposer, openNews, noticePending, noticeAck, noticeText } from "./notice.js";
+import { initTravel } from "./travel.js";
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -497,6 +540,7 @@ function startApp(u){
   $('login').hidden=true;$('app').hidden=false;
   startCollect();
   initGather({fs,get me(){return me},openSheet,closeSheet,toast});
+  initTravel({fs,get me(){return me},openSheet,closeSheet,toast,openGather});
   initNotice({fs,get me(){return me},profiles:()=>profiles,openSheet,closeSheet,toast,onChange:()=>setTimeout(checkNoticeAlert,300)});
   onSnapshot(collection(fs,'users'),s=>{profiles={};s.docs.forEach(d=>profiles[d.id]=d.data());if(!profiles[u.uid])profiles[u.uid]={name:u.name};watchAll();render()});
   watchAll();render();
@@ -538,7 +582,8 @@ function renderFull(){
   let side='<aside class="f-side"><div class="f-clock"><div class="time" id="f-time"></div><div class="date" id="f-date"></div>'+
     (collectUrl?'<a class="f-link" href="'+esc(collectUrl)+'" target="_blank" rel="noopener"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h10l6 6v10H4z"/><path d="M14 4v6h6"/></svg></span><span>자료취합<small>취합 건 등록 · 파일 모으기</small></span><span class="ar">↗</span></a>':'')+
     '<a class="f-link dd" href="dashboard.html" target="_blank" rel="noopener"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span>일정입력<small>팀·개인 일정 추가 · 수정 · 업무 일람 올리기</small></span><span class="ar">↗</span></a>'+
-    '<button type="button" class="f-link g-open" data-gather><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5.5H6a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6.5a1 1 0 0 0-1-1h-2"/><path d="M9 12l2 2 4-4"/><path d="M9 17h6"/></svg></span><span>업무 취합<small>주간 업무 일람 · 주요행사 자료 · 월간 계획 등록</small></span><span class="ar">›</span></button></div>'+collectHTML();
+    '<button type="button" class="f-link g-open" data-gather><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6v3H9z"/><path d="M8 5.5H6a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6.5a1 1 0 0 0-1-1h-2"/><path d="M9 12l2 2 4-4"/><path d="M9 17h6"/></svg></span><span>업무 취합<small>주간 업무 일람 · 주요행사 자료 · 월간 계획 등록</small></span><span class="ar">›</span></button>'+
+    '<button type="button" class="f-link tv-open" data-travel><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span><span>여비 정산 제출<small>국내여비 정산 신청서 · 증빙 · 서명</small></span><span class="ar">›</span></button></div>'+collectHTML();
   side+='<div class="f-sec"><h3><span>'+(isT?'오늘':(sd.getMonth()+1)+'월 '+sd.getDate()+'일 ('+DOW[sd.getDay()]+')')+' 일정</span><button type="button" data-add="'+selDay+'">+ 추가</button></h3><div class="ag-list">'+
     (sel.length?sel.map(t=>evHTML(t,selDay)).join(''):'<div class="ag-empty">일정 없음</div>')+'</div></div>';
   if(L&&((L.items&&L.items.length)||L.off))side+='<div class="f-sec"><h3><span>'+(isT?'오늘의 ':'')+'점심</span></h3><div class="f-lunch">'+(L.note?'<span class="note">'+esc(L.note)+'</span><br>':'')+
@@ -769,6 +814,7 @@ function openQR(){
 }
 $('nt-btn').onclick=()=>{if(me)openNoticeComposer()};
 $('nw-btn').onclick=()=>{if(me)openNews()};
+document.addEventListener('click',e=>{if(e.target.closest('[data-travel]')){closeSheet();setTimeout(()=>import('./travel.js').then(m=>m.openTravel()),$('sheet-wrap').hidden?0:180)}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-gather]')){closeSheet();setTimeout(()=>openGather(),$('sheet-wrap').hidden?0:180);return}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-qr]')){closeSheet();setTimeout(openQR,closeSheet&&$('sheet-wrap').hidden?0:180)}});
 
