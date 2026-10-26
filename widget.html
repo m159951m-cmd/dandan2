@@ -114,6 +114,44 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .btn.danger{color:#b42318;border-color:#f1c4bf}.btn.danger.ask{background:#b42318;border-color:#b42318;color:#fff}
 .acts .sp{flex:1}
 .qr-mini{margin-right:6px}
+/* 위쪽 공지 · 뉴스 버튼 */
+.bar-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font-size:14px;font-weight:600;color:var(--fg);margin-right:6px;white-space:nowrap}
+.bar-btn:hover{background:var(--soft)}
+#nt-btn{color:#b4361a;border-color:#f3cfc4}
+@media (max-width:640px){.bar-btn span{display:none}.bar-btn{padding:6px 9px}}
+/* 공지 보내기 창 */
+.nt-root{display:flex;flex-direction:column;gap:12px;min-height:0;height:100%}
+.nt-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;min-height:0;flex:1}
+.nt-form{gap:10px;font-size:14px;color:var(--fg);overflow:auto;min-height:0}
+.nt-form textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;resize:vertical}
+.nt-form input[type=text],.nt-form textarea{font-size:15px;color:var(--fg)}.nt-form textarea{font-family:var(--font);line-height:1.5}.nt-form .g-seg span{font-size:14px;color:var(--fg)}
+.nt-pick{border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.nt-pick-head{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}
+.nt-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 10px;max-height:180px;overflow:auto}
+.nt-people label{display:flex;align-items:center;gap:6px;font-size:14px;padding:3px 0;cursor:pointer}
+.nt-k{font-size:11px;font-weight:700;background:#fee500;color:#3c1e1e;border-radius:5px;padding:1px 5px}
+.nt-kakao{font-weight:600}.nt-note{margin:-4px 0 0}
+.nt-sent{overflow:auto;min-height:0;border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.nt-sent h3{margin:0 0 8px;font-size:15px}
+.nt-it{border-top:1px solid var(--line);padding:10px 0}.nt-it:first-of-type{border-top:0}
+.nt-top{display:flex;justify-content:space-between;gap:8px}.nt-top span{font-size:12px;color:var(--muted);white-space:nowrap}
+.nt-it p{margin:4px 0;font-size:13.5px;color:var(--fg);word-break:keep-all;overflow-wrap:anywhere}
+.nt-st{display:flex;align-items:center;gap:6px}.nt-st .sp{flex:1}
+.nt-ok{font-size:12.5px;font-weight:700;color:#0d4ea6;background:var(--accent-soft);border-radius:999px;padding:2px 8px}
+.nt-wait{display:block;font-size:12px;color:#b4361a;margin-top:4px}.nt-wait.done{color:#1f7a45}
+/* 뉴스 창 */
+.nw{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.nw li{padding:10px 2px;border-top:1px solid var(--line)}.nw li:first-child{border-top:0}
+.nw a{color:var(--fg);text-decoration:none;font-weight:600;font-size:15px;line-height:1.45;overflow-wrap:anywhere}.nw a:hover{color:var(--accent);text-decoration:underline}
+.nw small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.nw-list{overflow:auto;min-height:0;flex:1}
+/* 공지 큰 알림 */
+.big-alert.notice{background:rgba(70,30,10,.55)}
+.big-alert.notice .ba{border-top-color:#e8590c}
+.big-alert.notice h2{color:#c2410c}
+.big-alert .nt-msg{text-align:left;background:#fff4e6;border-radius:12px;padding:14px 18px;font-size:18px;line-height:1.6;margin:0 0 18px;max-height:40vh;overflow:auto;word-break:keep-all;overflow-wrap:anywhere}
+.big-alert .nt-more{font-size:14px;margin:-8px 0 12px}
+@media (max-width:760px){.nt-body{grid-template-columns:1fr}}
 /* 업무 취합 */
 .sheet.wide{max-width:1040px!important;width:100%}
 body.full .sheet.wide{height:86vh}
@@ -361,6 +399,8 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
     <button class="icon" id="next" aria-label="다음">›</button>
     <h1 id="title"></h1>
     <span class="sp"></span>
+    <button type="button" class="bar-btn" id="nt-btn" title="공지사항 보내기"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span>공지 보내기</span></button>
+    <button type="button" class="bar-btn" id="nw-btn" title="오늘의 교육 뉴스"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M7.5 9h6M7.5 12.5h6M7.5 16h4"/></svg><span>뉴스</span></button>
     <div class="thwrap"><button type="button" class="icon th-btn" id="th-btn" aria-label="배경 색 바꾸기" title="배경 색 바꾸기" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10" cy="7" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor"/></svg></button>
       <div class="th-pop m-pop" id="th-pop" hidden role="group" aria-label="배경 색"></div></div>
     <button type="button" class="icon qr-mini" data-qr aria-label="휴대폰으로 열기 (QR코드)" title="휴대폰으로 열기 (QR코드)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button>
@@ -400,6 +440,7 @@ import * as CFG from "./config.js";
 const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = CFG.collectFirebase || null;
 import { collectWatch, collectJoin, dueLabel, fmtDue } from "./collect.js";
 import { initGather, openGather, nextWeekKey } from "./gather.js";
+import { initNotice, openNoticeComposer, openNews, noticePending, noticeAck, noticeText } from "./notice.js";
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -456,6 +497,7 @@ function startApp(u){
   $('login').hidden=true;$('app').hidden=false;
   startCollect();
   initGather({fs,get me(){return me},openSheet,closeSheet,toast});
+  initNotice({fs,get me(){return me},profiles:()=>profiles,openSheet,closeSheet,toast,onChange:()=>setTimeout(checkNoticeAlert,300)});
   onSnapshot(collection(fs,'users'),s=>{profiles={};s.docs.forEach(d=>profiles[d.id]=d.data());if(!profiles[u.uid])profiles[u.uid]={name:u.name};watchAll();render()});
   watchAll();render();
 }
@@ -721,6 +763,8 @@ function openQR(){
     '<div class="acts"><button type="button" class="btn primary" data-close>닫기</button></div>','휴대폰으로 열기');
   draw(); $('qr-name').onchange=draw;
 }
+$('nt-btn').onclick=()=>{if(me)openNoticeComposer()};
+$('nw-btn').onclick=()=>{if(me)openNews()};
 document.addEventListener('click',e=>{if(e.target.closest('[data-gather]')){closeSheet();setTimeout(()=>openGather(),$('sheet-wrap').hidden?0:180);return}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-qr]')){closeSheet();setTimeout(openQR,closeSheet&&$('sheet-wrap').hidden?0:180)}});
 
@@ -762,7 +806,7 @@ function checkAlerts(){
     (collectUrl?'<a href="'+esc(collectUrl)+'" target="_blank" rel="noopener">자료취합 열기 ↗</a>':'')+'<button type="button" data-done>이미 냈어요</button><button type="button" data-ok>확인</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
-  const close=()=>{list.forEach(x=>lsSet(ALERT_KEY(x.it,x.st),'1'));window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
+  const close=()=>{list.forEach(x=>lsSet(ALERT_KEY(x.it,x.st),'1'));window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkNoticeAlert();checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
   box.querySelector('[data-ok]').onclick=close; box.querySelector('a')&&box.querySelector('a').addEventListener('click',close);
   box.querySelector('[data-done]').onclick=()=>{list.forEach(x=>lsSet('cl-done-'+x.it.id,'1'));collect={...collect,items:collect.items.filter(it=>lsGet('cl-done-'+it.id)!=='1')};close();if(FULL)render();toast('취합 마감 목록에서 뺐어요')};
   setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
@@ -794,7 +838,7 @@ function checkTaskAlerts(){
     '<button type="button" data-z>5분 뒤 다시</button><button type="button" data-ok class="primary">확인</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
-  const close=()=>{window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
+  const close=()=>{window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkNoticeAlert();checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
   box.querySelector('[data-ok]').onclick=()=>{due.forEach(t=>lsSet(TA_KEY(t),'1'));close()};
   box.querySelector('[data-z]').onclick=()=>{due.forEach(t=>lsSet(TA_KEY(t)+'-z',String(Date.now()+5*6e4)));close()};
   setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
@@ -813,12 +857,26 @@ function checkWeekAlert(){
     '<div class="acts"><button type="button" data-go>지금 등록하기</button><button type="button" data-ok class="primary">확인했어요</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
   try{window.top.appAttention&&window.top.appAttention()}catch(e){}
-  const done=()=>{lsSet('wk-ack-'+slot,'1');window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
+  const done=()=>{lsSet('wk-ack-'+slot,'1');window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkNoticeAlert();checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
   box.querySelector('[data-ok]').onclick=done;
   box.querySelector('[data-go]').onclick=()=>{done();setTimeout(()=>openGather('ilam'),250)};
   setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
 }
 setInterval(checkWeekAlert,20000); setTimeout(checkWeekAlert,3000);
+
+/* 공지사항: '확인했어요'를 누를 때까지 화면 가운데에 떠 있음 */
+function checkNoticeAlert(){
+  if(alertOn||!me)return; const n=noticePending()[0]; if(!n)return;
+  alertOn=true; const t=noticeText(n), more=noticePending().length-1;
+  const box=document.createElement('div'); box.className='big-alert notice'; box.setAttribute('role','alertdialog'); box.setAttribute('aria-modal','true');
+  box.innerHTML='<div class="ba"><div class="ic">📢</div><h2>'+esc(t.title)+'</h2><p>'+esc(t.from)+' 님이 보낸 공지 · '+esc(t.at)+'</p><div class="nt-msg">'+esc(t.body).replace(/\n/g,'<br>')+'</div>'+
+    (more>0?'<p class="nt-more">공지가 '+more+'개 더 있어요</p>':'')+'<div class="acts"><button type="button" data-ok class="primary">확인했어요</button></div></div>';
+  document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
+  try{window.top.appAttention&&window.top.appAttention()}catch(e){}
+  box.querySelector('[data-ok]').onclick=()=>{noticeAck(n);window.dandanDismiss?dandanDismiss(box):box.remove();alertOn=false;try{window.top.appAttentionDone&&window.top.appAttentionDone()}catch(e){};setTimeout(()=>{checkNoticeAlert();checkAlerts();checkWeekAlert();checkTaskAlerts()},500)};
+  setTimeout(()=>box.querySelector('[data-ok]').focus(),50);
+}
+setInterval(checkNoticeAlert,15000);
 </script>
 </body>
 </html>
