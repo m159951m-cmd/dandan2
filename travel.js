@@ -242,7 +242,7 @@ const selected = () => items.filter(t => !picked || picked.has(t.id));
 /* ---------- 작성 칸 ---------- */
 function blank() {
   const today = ymd(new Date());
-  return { name: C.me.name, rank: ls.get('tv-rank') || '', dept: ls.get('tv-dept') || '중등교육과', from: WORK.city, home: ls.get('tv-home') || (cityKey(ls.get('tv-from')) !== WORK.city ? cityKey(ls.get('tv-from')) : ''), start: today, end: '', time: '09:00~18:00', place: '', city: '', purpose: '', scope: '관외', govCar: false,
+  return { name: C.me.name, rank: ls.get('tv-rank') || '', dept: ls.get('tv-dept') || '중등교육과', from: WORK.city, home: WORK.city, start: today, end: '', time: '09:00~18:00', place: '', city: '', purpose: '', scope: '관외', govCar: false,
     mealsGiven: 0, edu: { on: false }, lodging: { cap: '', actual: '', reason: '' }, fares: [], fuel: { on: false, km: '', type: ls.get('tv-fuel') || 'gas', price: '', eff: '', src: '' }, toll: '', deduct: '', note: '', applyDate: today, files: [] };
 }
 function newForm() { editId = null; cur = blank(); pend = []; renderForm(); renderList() }
@@ -253,7 +253,7 @@ function renderForm() {
   f.innerHTML = '<div class="tv-head"><h3>' + (editId ? '정산서 수정' : '여비 정산서 작성') + ' <small class="tv-sub">국내여비 정산 신청서(관외 출장)</small></h3><span class="tv-heads"><label class="check tv-rider tv-edu"><input type="checkbox" name="eon"' + (t.edu && t.edu.on ? ' checked' : '') + '> 교육훈련(연수)이에요</label>' + (t.edu && t.edu.on ? '' : '<label class="check tv-rider"><input type="checkbox" name="rider"' + (t.rider ? ' checked' : '') + '> 동승자로 갔어요</label>') + '</span></div>' +
     '<fieldset><legend>신청인</legend><div class="row3">' + I('name', '성명', t.name, 'required') + I('rank', '직급(직위)', t.rank, 'placeholder="예: 장학사"') + I('dept', '소속', t.dept) + '</div></fieldset>' +
     '<fieldset><legend>출장 일정</legend><div class="row3">' + I('start', '출장 시작일', t.start, 'type="date" required') + I('end', '끝나는 날 (하루면 비움)', t.end, 'type="date"') + I('time', '출장 시간', t.time, 'placeholder="09:00~18:00"') + '</div>' +
-    '<div class="row3">' + I('place', '출장지 (장소)', t.place, 'required placeholder="예: 경주 한화리조트"') + I('city', '출장 지역 (시·군)', t.city, 'placeholder="예: 경주"') + I('home', '거주지 (시·군)', t.home, 'placeholder="예: 김해 · 창원이면 비워도 돼요"') + '</div>' +
+    '<div class="row3">' + I('place', '출장지 (장소)', t.place, 'required placeholder="예: 경주 한화리조트"') + I('city', '출장 지역 (시·군)', t.city, 'placeholder="예: 경주"') + I('home', '거주지 (시·군)', t.home) + '</div>' +
     I('purpose', '출장 목적', t.purpose, 'required') + '</fieldset>' +
     '<fieldset><legend>일비 · 식비 · 숙박비</legend><div class="row3"><label class="fl">일비 (' + c.days + '일)<input name="dayAmt" value="' + c.dayAmt + '" inputmode="numeric"></label>' +
     '<label class="fl">식사 제공받은 횟수 (전체 ' + c.meals + '끼 중)<input name="mealsGiven" type="number" min="0" max="' + c.meals + '" value="' + num(t.mealsGiven) + '"></label><label class="fl">식비<input name="mealAmt" value="' + c.mealAmt + '" inputmode="numeric"></label></div>' +
@@ -462,7 +462,7 @@ async function onSubmit(e) {
   if (pend.some(f => f.busy)) { C.toast('증빙 파일을 바꾸는 중이에요. 잠시 후 다시 눌러 주세요'); return }
   const mine = !editId || (items.find(x => x.id === editId) || {}).pid === C.me.uid;
   if (mine && !sign) { const p = await drawSign(); if (!p) { C.toast('서명을 그려야 제출할 수 있어요'); return } }
-  ls.set('tv-rank', t.rank); ls.set('tv-dept', t.dept); ls.set('tv-home', t.home || ''); t.from = fromOf(t);
+  ls.set('tv-rank', t.rank); ls.set('tv-dept', t.dept); t.from = fromOf(t);
   const btn = e.target.querySelector('[type=submit]'); btn.disabled = true; btn.textContent = '올리는 중…';
   try {
     const files = (t.files || []).slice();
