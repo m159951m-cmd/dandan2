@@ -56,6 +56,8 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .ev.timed:hover{background:var(--soft)}
 .ev.done .t{text-decoration:line-through;opacity:.55}
 .ev.lunch{background:transparent;color:var(--muted);font-size:12.5px;padding-left:6px}
+.ev.lunch[data-lunch]{cursor:pointer}.ev.lunch[data-lunch]:hover{background:var(--soft)}
+.lunch-full{background:var(--soft);border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.8}.lunch-full .rice{font-weight:700;color:var(--accent)}.lunch-full .note{display:inline-block;font-size:12px;font-weight:700;color:var(--lo);background:var(--lo-soft);border-radius:999px;padding:1px 8px;margin-bottom:4px}
 .ev.lunch::before{content:"점심";font-size:10.5px;font-weight:700;color:var(--lo);background:var(--lo-soft);border-radius:4px;padding:1px 5px;flex:none}
 .ev.eatout::before{content:"외식";}
 .ag-empty{color:var(--muted);font-size:13px;padding:8px 6px}
@@ -429,6 +431,7 @@ body.full main{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,24vw
 @media (max-width:759px){body:not(.full) .m-anim.m-enter .sheet,body:not(.full) .m-anim.m-leave .sheet{transform:translateY(32px)}}
 .m-pop{transform-origin:top right;transition:transform 200ms var(--ease-out),opacity 160ms var(--ease-out)}
 .m-pop.m-enter,.m-pop.m-leave{transform:scale(.94);opacity:0}
+@media (max-width:700px){.calc-pop,.th-pop{position:fixed;top:64px;left:0;right:0;margin:0 auto;transform-origin:top center;max-width:calc(100vw - 24px);z-index:60}.th-pop{width:max-content;grid-template-columns:repeat(4,auto)}.calc-pop{width:min(300px,calc(100vw - 24px))}.calc-pop .ck button{height:48px}}
 /* 누르는 순간 바로 반응 (손을 떼기 전에) */
 button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{transform:scale(.97);transition:transform 100ms ease-out}
 @media (prefers-reduced-motion:reduce){
@@ -629,7 +632,7 @@ function renderAgenda(){
     if(!evs.length&&!isT&&!(L&&L.items&&L.items.length&&k===selDay))continue;
     if(d.getMonth()!==lastM){h+='<div class="ag-month">'+d.getFullYear()+'년 '+(d.getMonth()+1)+'월</div>';lastM=d.getMonth()}
     let list=evs.map(t=>evHTML(t,k)).join('');
-    if(L&&L.items&&L.items.length)list+='<div class="ev lunch"><span class="t">'+esc(L.items.slice(0,4).join(', '))+'</span></div>';
+    if(L&&L.items&&L.items.length)list+='<div class="ev lunch" data-lunch="'+k+'" role="button" tabindex="0" title="눌러서 전체 메뉴 보기"><span class="t">'+esc(L.items.slice(0,4).join(', '))+'</span></div>';
     else if(L&&L.off==='외식의 날')list+='<div class="ev lunch eatout"><span class="t">외식의 날</span></div>';
     if(!evs.length&&!list)list='<div class="ag-empty">일정 없음</div>';
     else if(!evs.length)list='<div class="ag-empty">일정 없음</div>'+list;
@@ -653,7 +656,7 @@ function renderMonth(){
   const sel=T.filter(t=>occurs(t,selDay)).sort(sortEv), sd=parse(selDay), L=lunchOf(selDay);
   h+='<div class="mo-sel"><div class="ag-day'+(selDay===TODAY?' today':'')+'"><div class="ag-date" data-add="'+selDay+'"><small>'+DOW[sd.getDay()]+'</small><b>'+sd.getDate()+'</b></div><div class="ag-list">'+
     (sel.length?sel.map(t=>evHTML(t,selDay)).join(''):'<div class="ag-empty">일정 없음 · 왼쪽 날짜를 눌러 추가</div>')+
-    (L&&L.items&&L.items.length?'<div class="ev lunch"><span class="t">'+esc(L.items.slice(0,4).join(', '))+'</span></div>':L&&L.off==='외식의 날'?'<div class="ev lunch eatout"><span class="t">외식의 날</span></div>':'')+'</div></div></div>';
+    (L&&L.items&&L.items.length?'<div class="ev lunch" data-lunch="'+selDay+'" role="button" tabindex="0" title="눌러서 전체 메뉴 보기"><span class="t">'+esc(L.items.slice(0,4).join(', '))+'</span></div>':L&&L.off==='외식의 날'?'<div class="ev lunch eatout"><span class="t">외식의 날</span></div>':'')+'</div></div></div>';
   $('main').innerHTML=h;
 }
 
@@ -773,11 +776,16 @@ $('sheet').addEventListener('submit',async e=>{
 });
 const DLONG=k=>{const d=parse(k);return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')'};
 // 날짜를 누르면: 그날 일정 목록 → 눌러서 수정, 아래에서 바로 추가
+/* 점심 전체 메뉴 */
+function lunchFull(k){const L=lunchOf(k);if(!L||!((L.items&&L.items.length)||L.off))return '';return '<div class="lunch-full">'+(L.note?'<span class="note">'+esc(L.note)+'</span><br>':'')+(L.items&&L.items.length?L.items.map((x,i)=>i===0?'<span class="rice">'+esc(x)+'</span>':esc(x)).join('<br>'):'<b>'+esc(L.off)+'</b>')+'</div>'}
+function openLunch(k){const h=lunchFull(k);if(!h)return;openSheet('<h2>'+DLONG(k)+' 점심</h2>'+h+'<div class="acts"><button type="button" class="btn primary" data-close>닫기</button></div>','점심 메뉴')}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-lunch]');if(b){e.stopPropagation();openLunch(b.dataset.lunch)}},true);
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('[data-lunch]')){e.preventDefault();openLunch(e.target.dataset.lunch)}});
 function openDay(k){
-  const evs=allTasks().filter(t=>occurs(t,k)).sort(sortEv);
+  const evs=allTasks().filter(t=>occurs(t,k)).sort(sortEv), lf=lunchFull(k);
   openSheet('<h2>'+DLONG(k)+(k===TODAY?' <span class="owner">오늘</span>':'')+'</h2>'+
     (evs.length?'<div class="day-list">'+evs.map(t=>evHTML(t,k)).join('')+'</div><p class="meta" style="margin:0">일정을 누르면 수정할 수 있어요.</p>':'<p class="day-empty">이 날은 일정이 없어요.</p>')+
-    '<div class="acts"><button type="button" class="btn" data-close>닫기</button><button type="button" class="btn primary" data-add-day="'+k+'">+ 이 날 일정 추가</button></div>','날짜 일정');
+    (lf?'<h3 style="margin:4px 0 0;font-size:14px">점심</h3>'+lf:'')+'<div class="acts"><button type="button" class="btn" data-close>닫기</button><button type="button" class="btn primary" data-add-day="'+k+'">+ 이 날 일정 추가</button></div>','날짜 일정');
 }
 function openEdit(o,id){
   const t=(data[o]||[]).find(x=>x.id===id); if(!t)return;
