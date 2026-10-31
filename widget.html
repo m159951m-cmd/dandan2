@@ -622,7 +622,7 @@ function evHTML(t,k){
   const c=colorOf(t), who=t.owner!==me.uid&&t.owner!==PK?'<span class="who">'+esc(nameOf(t.owner))+'</span>':'';
   const allDay=isMulti(t)||!t.time;
   const span=isMulti(t)?' <span class="tm">('+((parse(k)-parse(t.date))/864e5+1)+'/'+((parse(endOf(t))-parse(t.date))/864e5+1)+'일)</span>':'';
-  return '<button type="button" data-tip="'+esc(tipOf(t))+'" class="ev c-'+c+(allDay?'':' timed')+(t.done?' done':'')+'" data-o="'+t.owner+'" data-id="'+t.id+'">'+(allDay?'':'<span class="tm">'+t.time+'</span>')+'<span class="t">'+esc(t.title)+'</span>'+span+who+'</button>';
+  return '<button type="button" data-tip="'+esc(tipOf(t))+'" class="ev c-'+c+(allDay?'':' timed')+(t.done?' done':'')+'" data-o="'+t.owner+'" data-id="'+t.id+'" data-k="'+k+'">'+(allDay?'':'<span class="tm">'+t.time+'</span>')+'<span class="t">'+esc(t.title)+'</span>'+span+who+'</button>';
 }
 function renderAgenda(){
   const T=allTasks(), start=new Date(cursor); let h='', lastM=-1;
@@ -725,9 +725,11 @@ $('scope').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(
 if($('today'))$('today').onclick=()=>{cursor=FULL?new Date(now.getFullYear(),now.getMonth(),1):new Date(now.getFullYear(),now.getMonth(),now.getDate());selDay=TODAY;$('main').scrollTop=0;render()};
 $('vseg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(!b)return;view=b.dataset.v;lsSet('w-view',view);
   if(view==='month')cursor=new Date(parse(selDay).getFullYear(),parse(selDay).getMonth(),1);else cursor=parse(selDay);render()});
+// 휴대폰: 일정을 누르면 먼저 그날 일정 전체(잘림 없이)를 보여 주고, 거기서 한 번 더 누르면 수정
+const isPhone=()=>matchMedia('(max-width:760px)').matches;
 $('main').addEventListener('click',e=>{
-  const ev=e.target.closest('.ev[data-id]'); if(ev){openEdit(ev.dataset.o,ev.dataset.id);return}
-  const mc=e.target.closest('[data-day]'); if(mc){selDay=mc.dataset.day;const d=parse(selDay);if(FULL&&(d.getMonth()!==cursor.getMonth()||d.getFullYear()!==cursor.getFullYear()))cursor=new Date(d.getFullYear(),d.getMonth(),1);render();if(FULL)openDay(selDay);return}
+  const ev=e.target.closest('.ev[data-id]'); if(ev){if(isPhone()){openDay(ev.dataset.k||selDay);return}openEdit(ev.dataset.o,ev.dataset.id);return}
+  const mc=e.target.closest('[data-day]'); if(mc){selDay=mc.dataset.day;const d=parse(selDay);if(FULL&&(d.getMonth()!==cursor.getMonth()||d.getFullYear()!==cursor.getFullYear()))cursor=new Date(d.getFullYear(),d.getMonth(),1);render();if(FULL||(isPhone()&&mc.classList.contains('mc')&&mc.querySelector('.mchip')))openDay(selDay);return}
   const ad=e.target.closest('[data-add]'); if(ad){openAdd(ad.dataset.add);return}
   if(e.target.closest('#more')){agendaDays+=21;renderAgenda()}
 });
@@ -743,7 +745,7 @@ $('sheet-wrap').addEventListener('click',e=>{if(e.target.closest('[data-close]')
   if(e.target===$('sheet-wrap')){const ok=sheetDown===$('sheet-wrap')&&!$('sheet').classList.contains('wide');sheetDown=null;if(ok)closeSheet();return}
   const ev=e.target.closest('.ev[data-id]');if(ev){openEdit(ev.dataset.o,ev.dataset.id);return}
   const ad=e.target.closest('[data-add-day]');if(ad){openAdd(ad.dataset.addDay);return}
-  const bk=e.target.closest('[data-back]');if(bk){FULL?openDay(bk.dataset.back):closeSheet()}});
+  const bk=e.target.closest('[data-back]');if(bk){FULL||isPhone()?openDay(bk.dataset.back):closeSheet()}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet-wrap').hidden&&!$('sheet').classList.contains('wide'))closeSheet()});
 const swatchHTML=cur=>'<div class="sws">'+[['','def'],...CKEYS.map(c=>[c,c])].map(([v,c])=>'<label class="c-'+c+'" title="'+(v?CNAME[v]:'기본')+'"><input type="radio" name="col" value="'+v+'"'+((cur||'')===v?' checked':'')+'><span></span></label>').join('')+'</div>';
 const stamp=()=>({by:me.uid,byName:nameOf(me.uid),updated:Date.now()});
