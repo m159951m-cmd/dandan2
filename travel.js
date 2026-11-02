@@ -678,14 +678,15 @@ const b64bytes = b64 => { const bin = atob(b64), u = new Uint8Array(bin.length);
 const rid = () => String(1000000000 + Math.floor(Math.random() * 999999999));
 const NSDECL = 'xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hc="http://www.hancom.co.kr/hwpml/2011/core"';
 let zo = 0;
-function picXML(binId, W, H) {
+// fl: 글 앞에 떠 있는 그림 { hx: 오른쪽에서 띄울 거리 } — 서명을 '(서명 또는 인)' 글자 위에 겹치게
+function picXML(binId, W, H, fl) {
   const id = rid(); zo++;
-  return '<hp:pic id="' + id + '" zOrder="' + zo + '" numberingType="PICTURE" textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" href="" groupLevel="0" instid="' + rid() + '" reverse="0">' +
+  return '<hp:pic id="' + id + '" zOrder="' + zo + '" numberingType="PICTURE" textWrap="' + (fl ? 'IN_FRONT_OF_TEXT' : 'TOP_AND_BOTTOM') + '" textFlow="BOTH_SIDES" lock="0" dropcapstyle="None" href="" groupLevel="0" instid="' + rid() + '" reverse="0">' +
     '<hp:offset x="0" y="0"/><hp:orgSz width="' + W + '" height="' + H + '"/><hp:curSz width="' + W + '" height="' + H + '"/><hp:flip horizontal="0" vertical="0"/><hp:rotationInfo angle="0" centerX="' + Math.round(W / 2) + '" centerY="' + Math.round(H / 2) + '" rotateimage="1"/>' +
     '<hp:renderingInfo><hc:transMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/><hc:scaMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/><hc:rotMatrix e1="1" e2="0" e3="0" e4="0" e5="1" e6="0"/></hp:renderingInfo>' +
     '<hp:imgRect><hc:pt0 x="0" y="0"/><hc:pt1 x="' + W + '" y="0"/><hc:pt2 x="' + W + '" y="' + H + '"/><hc:pt3 x="0" y="' + H + '"/></hp:imgRect><hp:imgClip left="0" right="' + W + '" top="0" bottom="' + H + '"/><hp:inMargin left="0" right="0" top="0" bottom="0"/><hp:imgDim dimwidth="' + W + '" dimheight="' + H + '"/>' +
     '<hc:img binaryItemIDRef="' + binId + '" bright="0" contrast="0" effect="REAL_PIC" alpha="0"/><hp:effects/><hp:sz width="' + W + '" widthRelTo="ABSOLUTE" height="' + H + '" heightRelTo="ABSOLUTE" protect="0"/>' +
-    '<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/><hp:outMargin left="0" right="0" top="0" bottom="0"/></hp:pic>';
+    (fl ? '<hp:pos treatAsChar="0" affectLSpacing="0" flowWithText="1" allowOverlap="1" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="CENTER" horzAlign="RIGHT" vertOffset="0" horzOffset="' + Math.max(0, Math.round(fl.hx || 0)) + '"/>' : '<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0"/>') + '<hp:outMargin left="0" right="0" top="0" bottom="0"/></hp:pic>';
 }
 function frag(docx, xml) { const d = new DOMParser().parseFromString('<w ' + NSDECL + '>' + xml + '</w>', 'application/xml'); return docx.importNode(d.documentElement.firstElementChild, true) }
 const fareRows = t => {
@@ -704,6 +705,11 @@ async function buildHwpx(L) {
   const docx = new DOMParser().parseFromString(await zip.file('Contents/section0.xml').async('string'), 'application/xml');
   const hpf = new DOMParser().parseFromString(await zip.file('Contents/content.hpf').async('string'), 'application/xml');
   const manifest = hpf.getElementsByTagNameNS('*', 'manifest')[0];
+  const hdr = new DOMParser().parseFromString(await zip.file('Contents/header.xml').async('string'), 'application/xml'), rightPr = {};
+  // 서명 줄 문단을 오른쪽 정렬로: '(서명 또는 인)'이 줄 끝에 오도록 해서 서명 그림을 그 위에 정확히 겹침
+  const rightPara = pid => { if (rightPr[pid]) return rightPr[pid]; const L = [...hdr.getElementsByTagNameNS('*', 'paraPr')], src = L.find(x => x.getAttribute('id') === pid); if (!src) return pid;
+    const nid = String(Math.max(...L.map(x => +x.getAttribute('id') || 0)) + 1), cl = src.cloneNode(true); cl.setAttribute('id', nid); const al = [...cl.getElementsByTagNameNS('*', 'align')][0]; if (al) al.setAttribute('horizontal', 'RIGHT');
+    src.parentNode.appendChild(cl); const box = src.parentNode; if (box.hasAttribute('itemCnt')) box.setAttribute('itemCnt', String(+box.getAttribute('itemCnt') + 1)); return (rightPr[pid] = nid) };
   const sec = docx.documentElement, P0 = kids(sec, 'p')[0], T0 = P0.cloneNode(true);
   let img = 100; zo = 50;
   const addBin = (bytes, ext) => { img++; const id = 'image' + img, path = 'BinData/' + id + '.' + ext; zip.file(path, bytes); const it = hpf.createElementNS(manifest.namespaceURI, (manifest.prefix ? manifest.prefix + ':' : '') + 'item'); it.setAttribute('id', id); it.setAttribute('href', path); it.setAttribute('media-type', ext === 'png' ? 'image/png' : 'image/jpg'); it.setAttribute('isEmbeded', '1'); manifest.appendChild(it); return id };
@@ -738,8 +744,12 @@ async function buildHwpx(L) {
       const run = all(m['0,16'], 'run').find(r => /서명\s*또는\s*인/.test(r.textContent));
       if (run) {
         const im = await new Promise(res => { const x = new Image(); x.onload = () => res(x); x.onerror = () => res(null); x.src = t.sign });
-        if (im) { const H = 2600, W = Math.min(9000, Math.round(H * im.naturalWidth / im.naturalHeight)), id = addBin(b64bytes(t.sign.split(',')[1]), 'png');
-          const r2 = docx.createElementNS(HP, 'hp:run'); r2.setAttribute('charPrIDRef', run.getAttribute('charPrIDRef')); r2.appendChild(frag(docx, picXML(id, W, Math.round(W * im.naturalHeight / im.naturalWidth)))); run.parentNode.insertBefore(r2, run) }
+        if (im) {
+          const H0 = 2000, W = Math.min(5200, Math.round(H0 * im.naturalWidth / im.naturalHeight)), H = Math.round(W * im.naturalHeight / im.naturalWidth), id = addBin(b64bytes(t.sign.split(',')[1]), 'png');
+          const para = run.parentNode; para.setAttribute('paraPrIDRef', rightPara(para.getAttribute('paraPrIDRef')));
+          const ts = all(para, 't'); if (ts[0]) ts[0].textContent = ts[0].textContent.replace(/^\s+/, '');
+          const TW = 4800;   // ' (서명 또는 인)' 글자 폭 (8pt 기준 대략)
+          const r2 = docx.createElementNS(HP, 'hp:run'); r2.setAttribute('charPrIDRef', run.getAttribute('charPrIDRef')); r2.appendChild(frag(docx, picXML(id, W, H, { hx: (TW - W) / 2 }))); para.insertBefore(r2, run) }
       }
     }
     // 증빙: 신청서 다음 장부터 한 장씩
@@ -752,7 +762,8 @@ async function buildHwpx(L) {
   }
   let out = new XMLSerializer().serializeToString(docx); if (!out.startsWith('<?xml')) out = '<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>' + out;
   let hx = new XMLSerializer().serializeToString(hpf); if (!hx.startsWith('<?xml')) hx = '<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>' + hx;
-  zip.file('Contents/section0.xml', out); zip.file('Contents/content.hpf', hx); zip.file('mimetype', 'application/hwp+zip', { compression: 'STORE' });
+  let hh = new XMLSerializer().serializeToString(hdr); if (!hh.startsWith('<?xml')) hh = '<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>' + hh;
+  zip.file('Contents/section0.xml', out); zip.file('Contents/content.hpf', hx); zip.file('Contents/header.xml', hh); zip.file('mimetype', 'application/hwp+zip', { compression: 'STORE' });
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/hwp+zip' });
 }
 async function downloadHwp(L, name) {
