@@ -26,7 +26,9 @@ const md = k => { const d = parse(k); return (d.getMonth() + 1) + '/' + d.getDat
 export const RATE = { day: 25000, meal: 25000 };
 // 여비 예산이 모자라 지금은 운임 중 자가용 연료비만 지급 → 대중교통 운임 · 통행료 칸을 숨기고 합계에서도 뺌
 // (다시 지급하게 되면 false 로 바꾸면 칸이 돌아와요)
-export const FUEL_ONLY = true;
+export const FUEL_ONLY = true;   // 통행료는 지급하지 않음 (대중교통 운임은 자가용이 아닐 때 금액을 직접 적어 지급)
+const PUB = ['KTX', 'SRT', '일반열차', '고속버스', '시외버스', '시내버스', '택시', '항공', '배', '기타'];
+const pubSum = t => t.rider || (t.fuel && t.fuel.on) ? 0 : (t.fares || []).filter(f => !/자차|동승|관용/.test(f.mode || '')).reduce((a, f) => a + num(f.amt), 0);
 // 식비: 식사 시간(9시 · 12시 · 18시)이 출장 시간 안에 들어간 끼니만 셈. 끼니 수별 금액
 export const MEAL = [0, 8340, 16670, 25000];
 const MEAL_AT = [9 * 60, 12 * 60, 18 * 60];
@@ -180,13 +182,14 @@ export function calc(t) {
     const E = eduCalc(t), cut = num(t.deduct);
     const dayAmt = t.dayManual ? num(t.dayAmt) : E.day, mealAmt = t.mealManual ? num(t.mealAmt) : E.meal;
     const fuel = t.fuel && t.fuel.on ? (t.fuel.manual ? num(t.fuel.amt) : fuelAmt(num(t.fuel.km), num(t.fuel.price), num(t.fuel.eff) || (FUEL[t.fuel.type] || {}).eff)) : 0;
-    return { edu: E, rider: false, days: E.n, meals: E.mealCnt, mealLeft: E.mealCnt, dayAmt, mealAmt, fareSum: 0, fuel, lodging: E.lodging, toll: 0, cut, total: dayAmt + mealAmt + fuel + E.lodging - cut };
+    const fareSum = pubSum(t);
+    return { edu: E, rider: false, days: E.n, meals: E.mealCnt, mealLeft: E.mealCnt, dayAmt, mealAmt, fareSum, fuel, lodging: E.lodging, toll: 0, cut, total: dayAmt + mealAmt + fuel + fareSum + E.lodging - cut };
   }
   const days = dayCount(t.start, t.end);
   const dayAmt = t.dayManual ? num(t.dayAmt) : (t.govCar ? RATE.day / 2 : RATE.day) * days;
   const mc = mealCount(t), mealLeft = Math.max(0, mc.n - num(t.mealsGiven));
   const mealAmt = t.mealManual ? num(t.mealAmt) : mealMoney(mealLeft);
-  const fareSum = FUEL_ONLY ? 0 : (t.fares || []).filter(f => f.mode !== '자차').reduce((a, f) => a + num(f.amt), 0);
+  const fareSum = pubSum(t);
   const fuel = !t.rider && t.fuel && t.fuel.on ? (t.fuel.manual ? num(t.fuel.amt) : fuelAmt(num(t.fuel.km), num(t.fuel.price), num(t.fuel.eff) || (FUEL[t.fuel.type] || {}).eff)) : 0;
   const lodging = num(t.lodging && t.lodging.actual);
   const toll = FUEL_ONLY ? 0 : num(t.toll), cut = num(t.deduct);
@@ -260,17 +263,17 @@ function renderForm() {
     '<label class="check"><input type="checkbox" name="govCar"' + (t.govCar ? ' checked' : '') + '> 관용차량으로 다녀왔어요 (일비 1/2)</label>' +
     '<p class="meta tv-hint" id="tv-mealh">' + mealHint(t, c) + '</p>' +
     '<div class="row3">' + I('lcap', '숙박 상한액 또는 받은 선금', t.lodging.cap, 'inputmode="numeric"') + I('lact', '숙박 실제 소요액', t.lodging.actual, 'inputmode="numeric"') + I('lrsn', '초과지출 사유', t.lodging.reason) + '</div></fieldset>' +
-    (FUEL_ONLY ? '' : '<fieldset><legend>운임 (대중교통 등)</legend><div class="tv-fares">' + t.fares.map((r, i) =>
-      '<div class="tv-fare"><input type="date" data-fare="' + i + '" data-k="date" value="' + esc(r.date || '') + '" aria-label="일자"><select data-fare="' + i + '" data-k="mode" aria-label="교통편">' + MODES.map(m => '<option' + (r.mode === m ? ' selected' : '') + '>' + m + '</option>').join('') + '</select>' +
+    (t.fuel.on ? '' : '<fieldset class="tv-pub"><legend>대중교통 운임 <small>자가용이 아닐 때 · 금액 직접 입력</small></legend><p class="meta tv-hint">KTX · 버스 · 택시 등 실제 낸 금액을 적고, 영수증(승차권)을 아래 증빙에 붙여 주세요. 자가용으로 갔으면 아래 <b>자가용으로 다녀왔어요</b>를 체크하세요.</p><div class="tv-fares">' + t.fares.map((r, i) =>
+      '<div class="tv-fare"><input type="date" data-fare="' + i + '" data-k="date" value="' + esc(r.date || '') + '" aria-label="일자"><select data-fare="' + i + '" data-k="mode" aria-label="교통편">' + (PUB.includes(r.mode) || !r.mode ? PUB : [r.mode, ...PUB]).map(m => '<option' + (r.mode === m ? ' selected' : '') + '>' + m + '</option>').join('') + '</select>' +
       '<input data-fare="' + i + '" data-k="from" value="' + esc(r.from || '') + '" placeholder="출발지"><input data-fare="' + i + '" data-k="to" value="' + esc(r.to || '') + '" placeholder="도착지"><input data-fare="' + i + '" data-k="grade" value="' + esc(r.grade || '') + '" placeholder="등급"><input data-fare="' + i + '" data-k="amt" value="' + esc(r.amt || '') + '" placeholder="금액" inputmode="numeric"' + (r.mode === '자차' ? ' disabled title="자차는 아래 연료비로 계산돼요"' : '') + '><button type="button" class="btn-x del" data-fare-del="' + i + '" aria-label="이 줄 지우기">✕</button></div>').join('') +
-    '</div><button type="button" class="btn-x" data-fare-add>+ 운임 줄 추가</button>' + (t.fares.length > 4 ? '<p class="meta tv-warn">정산서 칸은 4줄이라 5번째 줄부터는 "외 n건"으로 합쳐져요.</p>' : '') + '</fieldset>') +
-    '<fieldset><legend>' + (FUEL_ONLY ? '운임 (자가용 연료비만 지급)' : '자가용 연료비') + '</legend>' + (FUEL_ONLY ? '<p class="meta tv-hint">지금은 여비 예산 사정으로 운임은 <b>자가용 연료비만</b> 지급해요. 대중교통 운임 · 통행료는 적지 않아요.</p>' : '') + '<label class="check"><input type="checkbox" name="fon"' + (t.fuel.on ? ' checked' : '') + '> 자가용으로 다녀왔어요</label>' +
+    '</div><button type="button" class="btn-x" data-fare-add>+ 대중교통 줄 추가</button>' + (t.fares.length > 4 ? '<p class="meta tv-warn">정산서 칸은 4줄이라 5번째 줄부터는 "외 n건"으로 합쳐져요.</p>' : '') + '</fieldset>') +
+    '<fieldset><legend>' + (FUEL_ONLY ? '운임 (자가용 연료비)' : '자가용 연료비') + '</legend>' + (FUEL_ONLY ? '<p class="meta tv-hint">자가용이면 거리로 연료비를 계산해요. 통행료는 지급하지 않아요.</p>' : '') + '<label class="check"><input type="checkbox" name="fon"' + (t.fuel.on ? ' checked' : '') + '> 자가용으로 다녀왔어요</label>' +
     (t.fuel.on ? '<div class="tv-distbox"><div class="tv-distbar"><button type="button" class="btn" data-dist-calc>📍 거리 자동 계산</button><small>근무지 · 거주지 중 짧은 왕복 거리</small></div><div id="tv-dist">' + distHTML(t) + '</div></div>' + '<div class="row3">' + I('km', '이동거리 (왕복 km)', t.fuel.km, 'inputmode="decimal" placeholder="예: 214"') + '<label class="fl">유종<select name="ftype">' + fuelOpts + '</select></label>' + (FUEL_ONLY ? '<span></span>' : I('toll', '통행료', t.toll, 'inputmode="numeric"')) + '</div>' +
       '<div class="row3">' + I('fprice', '단가 (원/' + (FUEL[t.fuel.type] || {}).unit + ')', t.fuel.price, 'inputmode="decimal"') + I('feff', '연비 (km/' + (FUEL[t.fuel.type] || {}).unit + ')', t.fuel.eff || (FUEL[t.fuel.type] || {}).eff, 'inputmode="decimal"') + '<label class="fl">연료비<input name="famt" value="' + c.fuel + '" readonly></label></div>' +
       '<p class="meta tv-hint" id="tv-fsrc">' + fuelNote(t) + '</p>' : (FUEL_ONLY ? '' : '<div class="row3">' + I('toll', '통행료', t.toll, 'inputmode="numeric"') + '</div>')) + '</fieldset>' +
     '<fieldset><legend>증빙 서류 (PDF · 사진)</legend><div class="tv-files">' + filesHTML() + '</div><label class="btn-x tv-up">+ 파일 붙이기<input type="file" id="tv-fin" accept="application/pdf,image/*" multiple hidden></label><p class="meta tv-hint">영수증 · 교통비 증빙 등을 붙이면 정산서 다음 장에 출력돼요. PDF는 쪽마다 사진으로 바뀌어요 (최대 10쪽).</p></fieldset>' +
     '<fieldset><legend>기타</legend><div class="row3">' + I('deduct', '공제', t.deduct, 'inputmode="numeric"') + I('applyDate', '신청일', t.applyDate, 'type="date"') + '</div>' + I('note', '비고', t.note, 'placeholder="예: 동승, 1식 제공"') + '</fieldset>' +
-    '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (c.rider ? '' : FUEL_ONLY ? '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>' : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>' +
+    '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (c.rider ? '' : FUEL_ONLY ? (c.fareSum ? '<div><span>운임(대중교통)</span><b>' + won(c.fareSum) + '</b></div>' : '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>') : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>' +
     '<div class="tv-sign"><div class="tv-sign-box">' + (sign ? '<img src="' + sign + '" alt="내 서명">' : '<span>아직 서명이 없어요</span>') + '</div><button type="button" class="btn-x" data-tv-sign>' + (sign ? '서명 다시 그리기' : '서명 그리기') + '</button><small>한 번 그리면 다음부터 자동으로 들어가요.</small></div>' +
     '<div class="acts">' + (editId ? '<button type="button" class="btn" data-tv-new>새로 작성</button>' : '') + '<button type="submit" class="btn primary">' + (editId ? '수정 저장' : '서명하고 제출') + '</button></div>';
   if (t.edu && t.edu.on) {   // 교육훈련(연수) 기준 칸
@@ -278,7 +281,7 @@ function renderForm() {
     if (old) old.outerHTML = eduHTML(t, c);
   }
   if (t.rider) {   // 동승: 일비 · 식비 · 숙박비만
-    const fs = [...f.querySelectorAll('fieldset')].filter(x => /^(운임|자가용)/.test((x.querySelector('legend') || {}).textContent || ''));
+    const fs = [...f.querySelectorAll('fieldset')].filter(x => /^(운임|자가용|대중교통)/.test((x.querySelector('legend') || {}).textContent || ''));
     fs.forEach((x, i) => { if (i) x.remove(); else x.outerHTML = '<fieldset><legend>운임</legend><p class="meta tv-hint">동승자로 가서 운임(연료비)은 받지 않아요. 일비 · 식비 · 숙박비만 적으면 돼요. 정산서 운임 칸에는 <b>동승</b>으로 적혀요.</p></fieldset>' });
   }
   f.querySelector('#tv-fin').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = '' });
@@ -341,7 +344,7 @@ function updateTotals() {
   const eh = document.getElementById('tv-eduh'); if (eh) eh.innerHTML = eduHint(cur, c);
   if (c.edu) { const ro = [...f.querySelectorAll('.tv-edubox input[readonly]')]; if (ro[0]) { ro[0].value = won(c.edu.lodging); const lb = ro[0].closest('label'); if (lb && lb.firstChild) lb.firstChild.textContent = '지급 숙박비 (상한 ' + won(c.edu.cap) + ')' } }
   const mg = f.querySelector('[name=mealsGiven]'); if (mg) { mg.max = c.meals; const lb = mg.closest('label'); if (lb && lb.firstChild && lb.firstChild.nodeType === 3) lb.firstChild.textContent = '식사 제공받은 횟수 (전체 ' + c.meals + '끼 중)' }
-  const box = f.querySelector('.tv-total'); if (box) box.outerHTML = '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (c.rider ? '' : FUEL_ONLY ? '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>' : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>';
+  const box = f.querySelector('.tv-total'); if (box) box.outerHTML = '<div class="tv-total"><div><span>일비</span><b>' + won(c.dayAmt) + '</b></div><div><span>식비</span><b>' + won(c.mealAmt) + '</b></div><div><span>숙박비</span><b>' + won(c.lodging) + '</b></div>' + (c.rider ? '' : FUEL_ONLY ? (c.fareSum ? '<div><span>운임(대중교통)</span><b>' + won(c.fareSum) + '</b></div>' : '<div><span>운임(연료비)</span><b>' + won(c.fuel) + '</b></div>') : '<div><span>운임</span><b>' + won(c.fareSum) + '</b></div><div><span>연료비</span><b>' + won(c.fuel) + '</b></div><div><span>통행료</span><b>' + won(c.toll) + '</b></div>') + (c.cut ? '<div><span>공제</span><b>-' + won(c.cut) + '</b></div>' : '') + '<div class="all"><span>합계</span><b>' + won(c.total) + '원</b></div></div>';
 }
 function onInput(e) {
   if (!e.target.closest('#tv-form')) return;
@@ -494,7 +497,7 @@ async function onClick(e) {
     if (delAsk !== dl) { delAsk = dl; dl.textContent = '한 번 더'; dl.classList.add('ask'); clearTimeout(delTm); delTm = setTimeout(() => { delAsk = null; dl.textContent = '삭제'; dl.classList.remove('ask') }, 3000); return }
     delAsk = null; const it = items.find(x => x.id === dl.dataset.tvDel); try { await deleteDoc(tdoc(dl.dataset.tvDel)); for (const f of (it && it.files) || []) await dropFile(f); if (editId === dl.dataset.tvDel) newForm(); C.toast('삭제했어요') } catch (err) { C.toast('삭제하지 못했어요') } return;
   }
-  if (t.closest('[data-fare-add]')) { read(); const last = cur.fares[cur.fares.length - 1]; cur.fares.push({ date: last ? last.date : cur.start, mode: cur.fuel.on ? '자차' : 'KTX', from: last ? last.to : cur.from, to: last ? last.from : (cur.city || ''), grade: '', amt: '' }); renderForm(); return }
+  if (t.closest('[data-fare-add]')) { read(); const last = cur.fares[cur.fares.length - 1]; cur.fares.push({ date: last ? last.date : cur.start, mode: last ? last.mode : '시외버스', from: last ? last.to : cur.from, to: last ? last.from : (cur.city || ''), grade: '', amt: '' }); renderForm(); return }
   const fd = t.closest('[data-fare-del]'); if (fd) { read(); cur.fares.splice(+fd.dataset.fareDel, 1); renderForm(); return }
   const xf = t.closest('[data-file-del]'); if (xf) { read(); cur.files.splice(+xf.dataset.fileDel, 1); refreshFiles(); return }
   const xp = t.closest('[data-pend-del]'); if (xp) { pend.splice(+xp.dataset.pendDel, 1); refreshFiles(); return }
@@ -686,7 +689,7 @@ function picXML(binId, W, H) {
 }
 function frag(docx, xml) { const d = new DOMParser().parseFromString('<w ' + NSDECL + '>' + xml + '</w>', 'application/xml'); return docx.importNode(d.documentElement.firstElementChild, true) }
 const fareRows = t => {
-  const L = FUEL_ONLY ? [] : (t.fares || []).filter(f => f.date || f.mode || f.from || f.to).map(f => ({ ...f }));
+  const L = t.fuel && t.fuel.on ? [] : (t.fares || []).filter(f => f.date || f.mode || f.from || f.to || num(f.amt)).map(f => ({ ...f }));
   if (t.rider) return [{ date: t.start, mode: '동승', from: t.from || '', to: t.city || t.place || '', grade: '', amt: '' }, { date: t.end || t.start, mode: '동승', from: t.city || t.place || '', to: t.from || '', grade: '', amt: '' }];
   if (t.fuel && t.fuel.on && !L.some(f => f.mode === '자차')) {
     L.unshift({ date: t.start, mode: '자차', from: t.from || '', to: t.city || t.place || '', grade: '', amt: '' }, { date: t.end || t.start, mode: '자차', from: t.city || t.place || '', to: t.from || '', grade: '', amt: '' });
