@@ -801,10 +801,10 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
     <div class="seg mm-tabs" id="mm-tabs"><button type="button" data-t="table" aria-pressed="true">표로 보기</button><button type="button" data-t="orig" aria-pressed="false">원본 보기</button></div>
     <div id="mm-body"></div>
     <div class="mm-foot">
-      <label class="attbtn" id="mm-up-label">식단표 바꾸기<input type="file" class="menu-up" id="mm-file" accept=".hwp,.pdf,image/*"></label>
+      <label class="attbtn" id="mm-up-label">식단표 바꾸기<input type="file" class="menu-up" id="mm-file" accept=".hwp,.hwpx,.pdf,image/*"></label>
       <button type="button" class="ghost-del" id="mm-del">이 달 식단표 지우기</button>
     </div>
-    <p class="muted-note">한글(HWP) 식단표를 올리면 날짜별 메뉴를 자동으로 읽어요. 다음 달 식단표를 올리면 그 달로 저장됩니다.</p>
+    <p class="muted-note">한글(HWP · HWPX) 식단표를 올리면 날짜별 메뉴를 자동으로 읽어요. 다음 달 식단표를 올리면 그 달로 저장됩니다.</p>
   </div>
 </div>
 <div class="modal" id="kw-modal" hidden>
@@ -1592,7 +1592,7 @@ async function parseHwpMenu(bytes, CFB, inflateRaw){
       if(tag===77){tbl={lvl,cells:[]};tables.push(tbl);cell=null;continue}            // TABLE
       if(tag===72&&tbl&&lvl===tbl.lvl&&r.length>=16){                                 // LIST_HEADER (표 칸)
         const v=new DataView(r.buffer,r.byteOffset,r.byteLength);
-        cell={c:v.getUint16(8,true),r:v.getUint16(10,true),lines:[],img:false};tbl.cells.push(cell);continue}
+        cell={c:v.getUint16(8,true),r:v.getUint16(10,true),cs:v.getUint16(12,true)||1,rs:v.getUint16(14,true)||1,lines:[],img:false};tbl.cells.push(cell);continue}
       if(tag===71&&tbl&&cell&&lvl===tbl.lvl+1&&r.length>=4&&String.fromCharCode(r[3],r[2],r[1],r[0])==='gso '){cell.img=true;continue}  // 칸 안의 그림
       if(tag===67){                                                                    // PARA_TEXT
         let t='', j=0; const v=new DataView(r.buffer,r.byteOffset,r.byteLength);
@@ -1605,27 +1605,57 @@ async function parseHwpMenu(bytes, CFB, inflateRaw){
       }
     }
   }
-  // 년·월 찾기 (예: "2026. 10월 식단표")
+  let preview=null; const pv=find('PrvImage'); if(pv&&pv.content&&pv.content.length)preview=new Uint8Array(pv.content);
+  return menuFromTables(texts,tables,preview);
+}
+/* 표 → 날짜별 메뉴 (HWP · HWPX 공용)
+   날짜 칸 바로 아래 줄에서 메뉴 칸을 찾음: 같은 열에서 시작하는 칸 → 없으면 그 열을 덮는(병합된) 칸.
+   예) 11월 식단표처럼 '3'은 3열인데 화요일 메뉴 칸이 2~3열에 걸쳐 있는 경우도 읽어요 */
+function menuFromTables(texts,tables,preview){
   let year=null, month=null;
   for(const t of texts){const m=t.match(/(20\d{2})\s*[.년]\s*(\d{1,2})\s*월/);if(m){year=+m[1];month=+m[2];break}}
   const days={};
   const dateRe=/^(\d{1,2})\s*(?:\((.+?)\))?$/;
   for(const t of tables){
-    const g={}; t.cells.forEach(c=>g[c.r+','+c.c]=c);
+    const below=c=>{const r=c.r+(c.rs||1), row=t.cells.filter(x=>x.r===r);
+      return row.find(x=>x.c===c.c)||row.find(x=>x.c<=c.c&&c.c<x.c+(x.cs||1))||row.find(x=>x.c<c.c+(c.cs||1)&&c.c<x.c+(x.cs||1))||null};
     t.cells.forEach(c=>{
       if(!c.lines.length||c.lines.length>2)return;
       const m=c.lines[0].match(dateRe); if(!m)return;
       const day=+m[1]; if(day<1||day>31)return;
-      const below=g[(c.r+1)+','+c.c]; const L=below?below.lines:[];
+      const b=below(c); const L=b?b.lines:[];
       if(L.length&&dateRe.test(L[0]))return;
       const e={note:(m[2]||'').replace(/\s+/g,' ').trim(),items:[],off:''};
-      if(L.length===1)e.off=L[0]; else if(!L.length&&below&&below.img)e.off='외식의 날'; else e.items=L.slice();
+      if(L.length===1)e.off=L[0]; else if(!L.length&&b&&b.img)e.off='외식의 날'; else e.items=L.slice();
       days[String(day)]=e;
     });
   }
   const notes=texts.filter(t=>/^\*/.test(t)).map(t=>t.replace(/^\*+\s*|\s*\*+$/g,'').trim()).slice(0,4);
-  let preview=null; const pv=find('PrvImage'); if(pv&&pv.content&&pv.content.length)preview=new Uint8Array(pv.content);
   return {year,month,days,notes,preview,title:(texts.find(t=>/식단/.test(t))||'').slice(0,40)};
+}
+/* HWPX 식단표 읽기 (한글 2014 이후 기본 형식) */
+async function parseHwpxMenu(bytes){
+  if(!window.JSZip)await loadScript('jszip.min.js');
+  const zip=await window.JSZip.loadAsync(bytes), texts=[], tables=[];
+  const secs=Object.keys(zip.files).filter(n=>/^Contents\/section\d+\.xml$/i.test(n)).sort((a,b)=>+a.match(/\d+/)[0]-+b.match(/\d+/)[0]);
+  if(!secs.length)throw new Error('HWPX 파일이 아니에요');
+  const kids=(el,t)=>[...el.children].filter(x=>x.localName===t);
+  const txt=p=>[...p.getElementsByTagNameNS('*','t')].map(x=>x.textContent).join('').trim();
+  for(const sn of secs){
+    const doc=new DOMParser().parseFromString(await zip.file(sn).async('string'),'application/xml');
+    [...doc.getElementsByTagNameNS('*','p')].forEach(p=>{if(!p.getElementsByTagNameNS('*','tbl').length){const t=txt(p);if(t)texts.push(t)}});
+    for(const tb of doc.getElementsByTagNameNS('*','tbl')){
+      const cells=[];
+      for(const tr of kids(tb,'tr'))for(const tc of kids(tr,'tc')){
+        const a=kids(tc,'cellAddr')[0], sp=kids(tc,'cellSpan')[0], sub=kids(tc,'subList')[0]; if(!a)continue;
+        const ps=sub?kids(sub,'p'):[], lines=[]; ps.forEach(p=>{const t=txt(p);if(t)lines.push(...t.split('\n').map(x=>x.trim()).filter(Boolean))});
+        cells.push({c:+a.getAttribute('colAddr'),r:+a.getAttribute('rowAddr'),cs:sp?+sp.getAttribute('colSpan')||1:1,rs:sp?+sp.getAttribute('rowSpan')||1:1,lines,img:!!tc.getElementsByTagNameNS('*','pic').length});
+      }
+      tables.push({cells});
+    }
+  }
+  let preview=null; const pv=zip.file(/Preview\/PrvImage\.(png|jpg)$/i)[0]; if(pv)preview=await pv.async('uint8array');
+  return menuFromTables(texts,tables,preview);
 }
 
 function watchMenuMonth(k){
@@ -1641,7 +1671,7 @@ function renderTodayMenu(){
   $('tm-date').textContent=(isToday?'오늘 ':'')+dayLabel(d);
   const el=$('tm-body'), M=menuCache[k];
   if(M===undefined){el.innerHTML='<p class="empty">불러오는 중…</p>';return}
-  if(!M){el.innerHTML='<div class="menu-empty"><p><b>'+(d.getMonth()+1)+'월 식단표</b>가 아직 없어요.</p><label class="attbtn">+ 식단표 올리기 (HWP)<input type="file" class="menu-up" accept=".hwp,.pdf,image/*"></label><p class="muted-note">한 사람이 올리면 팀 모두에게 보여요.</p></div>';return}
+  if(!M){el.innerHTML='<div class="menu-empty"><p><b>'+(d.getMonth()+1)+'월 식단표</b>가 아직 없어요.</p><label class="attbtn">+ 식단표 올리기 (HWP · HWPX)<input type="file" class="menu-up" accept=".hwp,.hwpx,.pdf,image/*"></label><p class="muted-note">한 사람이 올리면 팀 모두에게 보여요.</p></div>';return}
   const e=(M.days||{})[String(d.getDate())], we=d.getDay()===0||d.getDay()===6;
   let h='';
   if(e&&e.note)h+='<span class="tm-note">'+esc(e.note)+'</span>';
@@ -1676,7 +1706,7 @@ async function renderMonthMenu(){
   if(M&&!hasDays)mmTab='orig';
   document.querySelectorAll('#mm-tabs button').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.t===mmTab);b.disabled=b.dataset.t==='table'&&!!M&&!hasDays});
   $('mm-tabs').hidden=!M;
-  $('mm-del').hidden=!M; $('mm-up-label').firstChild.textContent=M?'식단표 바꾸기':'+ 식단표 올리기 (HWP)';
+  $('mm-del').hidden=!M; $('mm-up-label').firstChild.textContent=M?'식단표 바꾸기':'+ 식단표 올리기 (HWP · HWPX)';
   const el=$('mm-body');
   if(M===undefined){el.innerHTML='<p class="empty">불러오는 중…</p>';return}
   if(!M){el.innerHTML='<div class="menu-empty"><p>'+(base.getMonth()+1)+'월 식단표가 아직 없어요. 아래 버튼으로 올려 주세요.</p></div>';return}
@@ -1721,18 +1751,18 @@ $('mm-del').onclick=async()=>{
 async function uploadMenu(f,fallbackKey){
   try{
     let key=fallbackKey, meta={name:f.name,size:f.size,days:{},notes:[],title:''}, view=null, viewType='';
-    if(/\.hwp$/i.test(f.name)){
+    if(/\.hwpx?$/i.test(f.name)){
       toast('식단표를 읽는 중…');
-      await loadScript('https://cdn.jsdelivr.net/npm/cfb@1.2.2/dist/cfb.min.js');
-      const r=await parseHwpMenu(new Uint8Array(await f.arrayBuffer()),window.CFB,inflateRaw);
+      let r;
+      if(/\.hwpx$/i.test(f.name))r=await parseHwpxMenu(await f.arrayBuffer());
+      else{await loadScript('https://cdn.jsdelivr.net/npm/cfb@1.2.2/dist/cfb.min.js');r=await parseHwpMenu(new Uint8Array(await f.arrayBuffer()),window.CFB,inflateRaw)}
       if(r.year&&r.month)key=r.year+'-'+pad(r.month);
-      meta.days=r.days; meta.notes=r.notes; meta.title=(r.year&&r.month)?r.year+'. '+r.month+'월 식단표':f.name.replace(/\.hwp$/i,'');
+      meta.days=r.days; meta.notes=r.notes; meta.title=(r.year&&r.month)?r.year+'. '+r.month+'월 식단표':f.name.replace(/\.hwpx?$/i,'');
       if(r.preview){view=new Blob([r.preview],{type:'image/png'});viewType='image/png'}
       if(!Object.keys(r.days).length)toast('표에서 날짜별 메뉴를 찾지 못했어요. 원본 그림으로만 저장할게요.');
     }else if(/^image\//.test(f.type)){view=f;viewType=f.type;meta.title=f.name}
     else if(f.type==='application/pdf'){view=f;viewType='application/pdf';meta.title=f.name}
-    else if(/\.hwpx$/i.test(f.name)){toast('HWPX는 아직 못 읽어요. 한글에서 "다른 이름으로 저장 → HWP"로 바꿔 올려 주세요.');return}
-    else{toast('HWP, PDF, 그림 파일만 올릴 수 있어요');return}
+    else{toast('HWP · HWPX, PDF, 그림 파일만 올릴 수 있어요');return}
     if(view&&view.size>FILE_LIMIT&&/^image\//.test(viewType)){const s=await shrinkImage(view);if(s){view=s;viewType='image/jpeg'}}
     if(view&&view.size>FILE_LIMIT){if(!Object.keys(meta.days).length){toast('파일이 700KB가 넘어서 올릴 수 없어요');return}view=null;viewType=''}
     if(view)await setDoc(menuView(key),{data:await toB64(view),type:viewType});
