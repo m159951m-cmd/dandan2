@@ -57,6 +57,12 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .ev.done .t{text-decoration:line-through;opacity:.55}
 .ev.lunch{background:transparent;color:var(--muted);font-size:12.5px;padding-left:6px}
 .ev.lunch[data-lunch]{cursor:pointer}.ev.lunch[data-lunch]:hover{background:var(--soft)}
+.tpk{position:relative;display:block}.tpk input{width:100%}
+.tpk-pop{position:absolute;right:0;left:auto;top:calc(100% + 4px);z-index:40;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(15,35,60,.18);padding:8px;display:grid;grid-template-columns:auto auto;gap:8px;width:max-content;max-width:calc(100vw - 32px)}
+.tpk-pop[hidden]{display:none}.tpk-h,.tpk-m{display:grid;gap:3px;align-content:start}.tpk-h{grid-template-columns:repeat(6,34px)}.tpk-m{grid-template-columns:repeat(3,34px);border-left:1px solid var(--line);padding-left:8px}
+.tpk-h b,.tpk-m b{grid-column:1/-1;font-size:11.5px;color:var(--muted);font-weight:700}
+.tpk-pop button{height:30px;border-radius:7px;border:1px solid transparent;background:var(--soft);font-family:var(--num);font-size:13.5px;color:var(--fg);cursor:pointer}.tpk-pop button:hover{border-color:var(--accent)}.tpk-pop button.on{background:var(--accent);color:#fff}
+.tpk-clr{grid-column:1/-1;font-family:inherit!important;font-size:12.5px!important;color:var(--muted)!important;background:#fff!important;border:1px solid var(--line)!important}
 .lunch-full{background:var(--soft);border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.8}.lunch-full .rice{font-weight:700;color:var(--accent)}.lunch-full .note{display:inline-block;font-size:12px;font-weight:700;color:var(--lo);background:var(--lo-soft);border-radius:999px;padding:1px 8px;margin-bottom:4px}
 .ev.lunch::before{content:"점심";font-size:10.5px;font-weight:700;color:var(--lo);background:var(--lo-soft);border-radius:4px;padding:1px 5px;flex:none}
 .ev.eatout::before{content:"외식";}
@@ -752,7 +758,7 @@ const stamp=()=>({by:me.uid,byName:nameOf(me.uid),updated:Date.now()});
 function openAdd(k){
   openSheet('<h2>일정 추가</h2><form id="add" class="fl" style="gap:10px;font-size:14px;color:var(--fg)">'+
     '<input class="big" type="text" name="title" placeholder="제목 추가" required aria-label="제목">'+
-    '<div class="row2"><label class="fl">날짜<input type="date" name="date" value="'+k+'" required></label><label class="fl">시간 (비우면 종일)<input type="time" name="time"></label></div>'+
+    '<div class="row2"><label class="fl">날짜<input type="date" name="date" value="'+k+'" required></label><label class="fl">시간 (비우면 종일)'+tpk('')+'</label></div>'+
     '<div class="row2"><label class="fl">종료일 · 여러 날일 때만<input type="date" name="end"></label><label class="fl">우선순위<select name="pri"><option value="high">높음</option><option value="mid" selected>보통</option><option value="low">낮음</option></select></label></div>'+
     '<div class="fl">어디에 저장할까요<div class="sws-where"><label><input type="radio" name="where" value="team"'+(TEAM?' checked':'')+'><span>팀 (동료와 공유)</span></label><label><input type="radio" name="where" value="P"'+(TEAM?'':' checked')+'><span>개인 (나만)</span></label></div></div>'+
     '<div class="fl">색'+swatchHTML('')+'</div>'+
@@ -778,6 +784,20 @@ $('sheet').addEventListener('submit',async e=>{
 });
 const DLONG=k=>{const d=parse(k);return (d.getMonth()+1)+'월 '+d.getDate()+'일 ('+DOW[d.getDay()]+')'};
 // 날짜를 누르면: 그날 일정 목록 → 눌러서 수정, 아래에서 바로 추가
+/* 시간 고르기 (24시간제): 시 → 분을 누르면 닫힘. 직접 입력도 돼요 (1330 → 13:30) */
+const tpk=v=>'<span class="tpk"><input type="text" name="time" value="'+esc(v)+'" placeholder="종일" maxlength="5" autocomplete="off" inputmode="numeric" data-tpk aria-label="시간 (24시간제)"><span class="tpk-pop" hidden><span class="tpk-h"><b>시</b>'+Array.from({length:24},(_,h)=>'<button type="button" data-th="'+pad(h)+'">'+pad(h)+'</button>').join('')+'</span><span class="tpk-m"><b>분</b>'+Array.from({length:12},(_,i)=>'<button type="button" data-tm="'+pad(i*5)+'">'+pad(i*5)+'</button>').join('')+'</span><button type="button" class="tpk-clr" data-tclr>종일 (시간 없음)</button></span></span>';
+const tpkNorm=x=>{let t=String(x||'').replace(/[^\d:]/g,'');if(!t)return '';let h,m;if(t.includes(':'))[h,m]=t.split(':');else if(t.length<=2){h=t;m='0'}else{h=t.slice(0,t.length-2);m=t.slice(-2)}h=Math.min(23,+h||0);m=Math.min(59,+m||0);return pad(h)+':'+pad(m)};
+function tpkShow(w,on){const pop=w.querySelector('.tpk-pop');if(!pop)return;pop.hidden=!on;if(on){const v=w.querySelector('[data-tpk]').value,h=v.slice(0,2),m=v.slice(3,5);pop.querySelectorAll('[data-th]').forEach(b=>b.classList.toggle('on',b.dataset.th===h));pop.querySelectorAll('[data-tm]').forEach(b=>b.classList.toggle('on',b.dataset.tm===m));const on2=pop.querySelector('[data-th].on');if(on2)on2.scrollIntoView({block:'nearest'})}}
+document.addEventListener('focusin',e=>{if(e.target.matches&&e.target.matches('[data-tpk]'))tpkShow(e.target.closest('.tpk'),true)});
+document.addEventListener('mousedown',e=>{const w=e.target.closest&&e.target.closest('.tpk');document.querySelectorAll('.tpk-pop:not([hidden])').forEach(p=>{if(!w||!w.contains(p))p.hidden=true});if(w&&e.target.closest('.tpk-pop'))e.preventDefault()});
+document.addEventListener('click',e=>{const w=e.target.closest&&e.target.closest('.tpk');if(!w)return;const inp=w.querySelector('[data-tpk]');
+  if(e.target===inp){tpkShow(w,true);return}
+  const hb=e.target.closest('[data-th]');if(hb){inp.value=hb.dataset.th+':'+(inp.value.slice(3,5)||'00');tpkShow(w,true);return}
+  const mb=e.target.closest('[data-tm]');if(mb){inp.value=(inp.value.slice(0,2)||'09')+':'+mb.dataset.tm;tpkShow(w,false);return}
+  if(e.target.closest('[data-tclr]')){inp.value='';tpkShow(w,false)}},true);
+document.addEventListener('focusout',e=>{if(e.target.matches&&e.target.matches('[data-tpk]'))e.target.value=tpkNorm(e.target.value)});
+document.addEventListener('keydown',e=>{if(e.target.matches&&e.target.matches('[data-tpk]')&&(e.key==='Escape'||e.key==='Enter')){const w=e.target.closest('.tpk');if(w.querySelector('.tpk-pop:not([hidden])')){e.preventDefault();e.stopPropagation();e.target.value=tpkNorm(e.target.value);tpkShow(w,false)}}},true);
+document.addEventListener('submit',e=>{e.target.querySelectorAll&&e.target.querySelectorAll('[data-tpk]').forEach(i=>i.value=tpkNorm(i.value))},true);
 /* 점심 전체 메뉴 */
 function lunchFull(k){const L=lunchOf(k);if(!L||!((L.items&&L.items.length)||L.off))return '';return '<div class="lunch-full">'+(L.note?'<span class="note">'+esc(L.note)+'</span><br>':'')+(L.items&&L.items.length?L.items.map((x,i)=>i===0?'<span class="rice">'+esc(x)+'</span>':esc(x)).join('<br>'):'<b>'+esc(L.off)+'</b>')+'</div>'}
 function openLunch(k){const h=lunchFull(k);if(!h)return;openSheet('<h2>'+DLONG(k)+' 점심</h2>'+h+'<div class="acts"><button type="button" class="btn primary" data-close>닫기</button></div>','점심 메뉴')}
@@ -796,7 +816,7 @@ function openEdit(o,id){
     '<p class="owner" style="margin:0">'+(o===PK?'개인 일정 (나만 보임)':o==='dept'?'과 주요일정':o===me.uid?'내 팀 일정 (동료와 공유)':esc(nameOf(o))+' 님 일정')+(t.byName&&t.by!==o&&o!==PK?' · 마지막 수정 '+esc(t.byName):'')+'</p>'+
     '<form id="edit" class="fl" data-o="'+o+'" data-id="'+id+'" style="gap:10px;font-size:14px;color:var(--fg)">'+
     '<input class="big" type="text" name="title" value="'+esc(t.title)+'" required aria-label="제목">'+
-    '<div class="row2"><label class="fl">날짜<input type="date" name="date" value="'+esc(t.date)+'" required></label><label class="fl">시간 (비우면 종일)<input type="time" name="time" value="'+esc(t.time||'')+'"></label></div>'+
+    '<div class="row2"><label class="fl">날짜<input type="date" name="date" value="'+esc(t.date)+'" required></label><label class="fl">시간 (비우면 종일)'+tpk(t.time||'')+'</label></div>'+
     '<div class="row2"><label class="fl">종료일 · 여러 날일 때만<input type="date" name="end" value="'+esc(t.endDate||'')+'"></label><label class="fl">우선순위<select name="pri">'+[['high','높음'],['mid','보통'],['low','낮음']].map(([v,n])=>'<option value="'+v+'"'+(v===pri?' selected':'')+'>'+n+'</option>').join('')+'</select></label></div>'+
     (o==='dept'?'':'<div class="fl">색'+swatchHTML(t.color||'')+'</div>')+
     '<label class="check"><input type="checkbox" name="done"'+(t.done?' checked':'')+'> 완료</label>'+
