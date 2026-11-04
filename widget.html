@@ -179,6 +179,15 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 #nt-btn{color:#b4361a;border-color:#f3cfc4}
 @media (max-width:640px){.bar-btn span{display:none}.bar-btn{padding:6px 9px}}
 /* 공지 보내기 창 */
+.mm-root{display:flex;flex-direction:column;gap:12px;min-height:0;height:100%}.mm-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.mm-head h2{margin:0}.mm-head h2 small{font-size:12.5px;font-weight:400;color:var(--muted);margin-left:6px}
+.mm-body{display:grid;grid-template-columns:minmax(200px,.8fr) minmax(0,2fr);gap:14px;min-height:0;flex:1}
+.mm-list{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;border-right:1px solid var(--line);padding-right:12px}
+.mm-it{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff;cursor:pointer;width:100%}.mm-it:hover{background:var(--soft)}.mm-it.on{border-color:var(--accent);background:var(--accent-soft)}
+.mm-it b{font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mm-it small{font-size:12px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mm-it em{font-style:normal;font-size:11px;color:var(--muted)}
+.mm-edit{display:flex;flex-direction:column;gap:8px;min-height:0}.mm-edit input{border:0;border-bottom:1px solid var(--line);padding:8px 2px;font:inherit;font-size:17px;font-weight:600;background:transparent;color:var(--fg)}
+.mm-edit textarea{flex:1;min-height:260px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:15px;line-height:1.6;resize:none;color:var(--fg);background:#fff}
+.mm-acts{display:flex;align-items:center;gap:8px}.mm-acts .sp{flex:1}.mm-edit .btn.danger.ask{background:#c92a2a;color:#fff;border-color:#c92a2a}
+@media (max-width:760px){.mm-body{grid-template-columns:1fr}.mm-list{border-right:0;padding-right:0;max-height:30vh}.mm-edit textarea{min-height:200px}}
 .nt-root{display:flex;flex-direction:column;gap:12px;min-height:0;height:100%}
 .nt-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;min-height:0;flex:1}
 .nt-form{gap:10px;font-size:14px;color:var(--fg);overflow:auto;min-height:0}
@@ -461,6 +470,7 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
     <span class="sp"></span>
     <button type="button" class="bar-btn" id="nt-btn" title="공지사항 보내기"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span>공지 보내기</span></button>
     <button type="button" class="bar-btn" id="nw-btn" title="오늘의 교육 뉴스"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M7.5 9h6M7.5 12.5h6M7.5 16h4"/></svg><span>뉴스</span></button>
+    <button type="button" class="bar-btn" id="mm-btn" title="메모장 (나만 보여요)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8.5 12h7M8.5 15.5h7M8.5 8.5h3"/></svg><span>메모</span></button>
     <div class="thwrap"><button type="button" class="icon th-btn" id="th-btn" aria-label="배경 색 바꾸기" title="배경 색 바꾸기" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10" cy="7" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor"/></svg></button>
       <div class="th-pop m-pop" id="th-pop" hidden role="group" aria-label="배경 색"></div></div>
     <button type="button" class="icon qr-mini" data-qr aria-label="휴대폰으로 열기 (QR코드)" title="휴대폰으로 열기 (QR코드)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button>
@@ -498,8 +508,8 @@ button:not(.mc):not(.day):active,.f-link:active,.card:active,.cl-it:active{trans
 <script type="module">
 // 우리 파일(.js)은 열 때마다 최신 것을 받아요 (업무일정표 프로그램이 예전 파일을 붙잡고 있지 않게)
 const V='?v='+(new URLSearchParams(location.search).get('v')||Date.now()); window.__V=V;
-const [CFG,{ collectWatch, collectJoin, dueLabel, fmtDue },{ holidayOf },{ initGather, openGather, nextWeekKey },{ initNotice, openNoticeComposer, openNews, noticePending, noticeAck, noticeText },{ initTravel },{ ready, savedWho, enterByName, whoError, ensurePin }]=
-  await Promise.all(['config','collect','holidays','gather','notice','travel','who'].map(n=>import('./'+n+'.js'+V)));
+const [CFG,{ collectWatch, collectJoin, dueLabel, fmtDue },{ holidayOf },{ initGather, openGather, nextWeekKey },{ initNotice, openNoticeComposer, openNews, noticePending, noticeAck, noticeText },{ initTravel },{ ready, savedWho, enterByName, whoError, ensurePin },{ initMemo, openMemo }]=
+  await Promise.all(['config','collect','holidays','gather','notice','travel','who','memo'].map(n=>import('./'+n+'.js'+V)));
 const { firebaseConfig } = CFG, collectUrl = CFG.collectUrl || "", collectFb = CFG.collectFirebase || null;
 if(String(firebaseConfig.apiKey||'').startsWith('여기에')){document.body.innerHTML='<div style="max-width:520px;margin:60px auto;padding:24px;font:15px/1.7 system-ui,sans-serif;border:1px solid #d3e7f7;border-radius:14px;background:#fff"><h2 style="margin-top:0">연결 정보를 넣어 주세요</h2><p>public 폴더의 <b>config.js</b>를 메모장으로 열어, Firebase 콘솔에서 복사한 <code>const firebaseConfig = {…};</code> 를 붙여넣고 저장한 뒤 다시 올려 주세요. 자세한 방법은 설치 안내서 2단계를 보세요.</p></div>';throw new Error('config.js 미설정')}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -557,6 +567,7 @@ function startApp(u){
   startCollect();
   initGather({fs,get me(){return me},openSheet,closeSheet,toast});
   initTravel({fs,get me(){return me},openSheet,closeSheet,toast,openGather});
+  initMemo({fs,get me(){return me},openSheet,closeSheet,toast});
   initNotice({fs,get me(){return me},profiles:()=>profiles,openSheet,closeSheet,toast,onChange:()=>setTimeout(checkNoticeAlert,300)});
   onSnapshot(collection(fs,'users'),s=>{profiles={};s.docs.forEach(d=>profiles[d.id]=d.data());if(!profiles[u.uid])profiles[u.uid]={name:u.name};watchAll();render()});
   watchAll();render();
@@ -841,6 +852,7 @@ function openQR(){
 }
 $('nt-btn').onclick=()=>{if(me)openNoticeComposer()};
 $('nw-btn').onclick=()=>{if(me)openNews()};
+$('mm-btn').onclick=()=>{if(me)openMemo()};
 document.addEventListener('click',e=>{if(e.target.closest('[data-travel]')){closeSheet();setTimeout(()=>import('./travel.js'+V).then(m=>m.openTravel()),$('sheet-wrap').hidden?0:180)}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-gather]')){closeSheet();setTimeout(()=>openGather(),$('sheet-wrap').hidden?0:180);return}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-qr]')){closeSheet();setTimeout(openQR,closeSheet&&$('sheet-wrap').hidden?0:180)}});
