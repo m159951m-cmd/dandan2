@@ -914,15 +914,18 @@ function myTimedToday(){
     if(ppl.includes(myName())||norm2(t.title).includes('('+myName()+')'))out.push({...t,owner:'dept'})});
   return out;
 }
+// 몇 분 전에 알릴지: 업무일정표 ⚙ → 일정 알림 (0 = 끄기, 기본 10분)
+const alertMin=()=>{const v=lsGet('w-alert-min');return v===null||v===''||isNaN(+v)?10:+v};
 function checkTaskAlerts(){
   if(alertOn||!me)return;
+  const AM=alertMin(); if(!AM)return;
   const n=Date.now(), due=myTimedToday().filter(t=>{const [h,m]=t.time.split(':').map(Number);const at=parse(t.date).setHours(h,m,0,0);t._at=at;
-    return n>=at-10*6e4&&n<at+5*6e4&&lsGet(TA_KEY(t))!=='1'&&lsGet(TA_KEY(t)+'-z')<String(n)}).sort((a,b)=>a._at-b._at);
+    return n>=at-AM*6e4&&n<at+5*6e4&&lsGet(TA_KEY(t))!=='1'&&lsGet(TA_KEY(t)+'-z')<String(n)}).sort((a,b)=>a._at-b._at);
   if(!due.length)return;
   alertOn=true;
   const mins=t=>{const m=Math.round((t._at-Date.now())/6e4);return m>0?m+'분 후 시작':'지금 시작'};
   const box=document.createElement('div'); box.className='big-alert task'; box.setAttribute('role','alertdialog'); box.setAttribute('aria-modal','true');
-  box.innerHTML='<div class="ba"><div class="ic"><span class="bell">🔔</span></div><h2>곧 시작하는 일정이 있어요</h2><p>'+esc(me.name)+' 님, 10분 안에 시작해요</p><ul>'+
+  box.innerHTML='<div class="ba"><div class="ic"><span class="bell">🔔</span></div><h2>곧 시작하는 일정이 있어요</h2><p>'+esc(me.name)+' 님, '+AM+'분 안에 시작해요</p><ul>'+
     due.map(t=>'<li><span class="when">'+t.time+'</span>'+esc(t.title)+'<small>'+mins(t)+(t.owner===PK?' · 개인 일정':t.owner==='dept'?' · 과 주요일정':' · 팀 일정')+'</small></li>').join('')+'</ul><div class="acts">'+
     '<button type="button" data-z>5분 뒤 다시</button><button type="button" data-ok class="primary">확인</button></div></div>';
   document.body.appendChild(box); window.dandanAppear&&dandanAppear(box);
