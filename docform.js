@@ -9,8 +9,8 @@ const ls = { get(k) { try { return localStorage.getItem(k) } catch (e) { return 
 const V = () => window.__V || '';
 
 const LIST = [
-  { id: 'report', name: '보고서 (표지형)', desc: '표지 + 번호 소제목', ico: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8 7h8M9.5 11h5M10 17h4"/>' },
-  { id: 'brief', name: '1쪽 보고', desc: '제목 띠 + □ 소제목 · 보고·요청용', ico: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8 6.5h8v2.5H8z"/><path d="M8 13h1M10.5 13H16M8 16.5h1M10.5 16.5H15"/>' },
+  { id: 'report', name: '계획서', desc: '표지 + 번호 소제목', ico: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8 7h8M9.5 11h5M10 17h4"/>' },
+  { id: 'brief', name: '원페이퍼 교육감 보고', desc: '제목 띠 + □ 소제목 · 한 쪽 보고', ico: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8 6.5h8v2.5H8z"/><path d="M8 13h1M10.5 13H16M8 16.5h1M10.5 16.5H15"/>' },
   { id: 'event', name: '행사 보고', desc: '행사명·부서 머리표 · 교육감 참석 행사', ico: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M5 8.5h14M14 3v5.5"/><path d="M8 12.5h8M8 16h6"/>' },
   { id: 'speech', name: '축사·인사말', desc: '로고 + 제목 + 문단 + 날짜·서명', ico: '<path d="M12 3v4M12 21v-4"/><path d="M9 7h6l-1 10h-4z"/><path d="M7 11a5 5 0 0 0 10 0"/>' },
 ];
@@ -67,7 +67,7 @@ async function make(id, btn) {
       sections: tpl.defaults.map(d => ({ title: id === 'speech' ? d + ' 내용을 입력하세요' : d, items: [] })),
     };
     const bytes = GEN.generate(tpl, inp);
-    const name = ((title || tpl.name.replace(/[()\s·]/g, '')).replace(/[\\/:*?"<>|]/g, '').slice(0, 60)) + '_' + ymd() + '.hwpx';
+    const name = ((title || LIST.find(t => t.id === id).name.replace(/[()\s·]/g, '')).replace(/[\\/:*?"<>|]/g, '').slice(0, 60)) + '_' + ymd() + '.hwpx';
     if (inApp()) {
       let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
       const r = String(await window.top.appOpenDoc(name, btoa(bin)) || '');
