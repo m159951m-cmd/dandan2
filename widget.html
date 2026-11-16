@@ -107,6 +107,7 @@ main{flex:1;overflow:auto;position:relative;padding-bottom:90px}
 .sws label{position:relative;cursor:pointer}
 .sws input{position:absolute;opacity:0;width:1px;height:1px}
 .sws span{display:block;width:26px;height:26px;border-radius:50%;background:var(--evdot);border:3px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.sws .c-def span{background:conic-gradient(#4dabf7 0 60deg,#9775fa 0 120deg,#51cf66 0 180deg,#ff922b 0 240deg,#f783ac 0 300deg,#fcc419 0)}
 .sws input:checked+span{box-shadow:0 0 0 2px var(--fg)}
 .sws input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 .acts{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
@@ -560,7 +561,7 @@ const personColor=u=>u===PK?'green':u===(me&&me.uid)?'sky':CKEYS[(hashId(u)%(CKE
 // 과 주요일정은 단단이 팀 화면과 같은 담당별 색
 const GROUP_COLOR={'과장':'pink','중등장학':'sky','중등인사':'violet','교육과정':'green','교직단체':'orange'};
 const groupOf=t=>{const m=String(t.title||'').match(/^\[([^\]]+)\]/);return t.cat&&t.cat!=='업무'?t.cat:m?m[1]:''};
-const colorOf=t=>t.owner==='dept'&&CNAME[GROUP_COLOR[groupOf(t)]]?GROUP_COLOR[groupOf(t)]:t.color&&CNAME[t.color]?t.color:(t.owner!==me.uid&&t.owner!==PK?personColor(t.owner):isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'def');
+const colorOf=t=>t.owner==='dept'&&CNAME[GROUP_COLOR[groupOf(t)]]?GROUP_COLOR[groupOf(t)]:t.color&&CNAME[t.color]?t.color:(t.owner!==me.uid&&t.owner!==PK?personColor(t.owner):CKEYS[hashId(t.id)%CKEYS.length]);
 // 팀 월별 계획표: 팀 전원의 팀 일정 (개인 일정은 빼고)
 let TEAM=lsGet('w-team')==='1';
 const visible=()=>TEAM?Object.keys(profiles):shown&&shown.length?shown.filter(u=>profiles[u]||u===me.uid||u===PK):[PK];
@@ -771,7 +772,7 @@ $('sheet-wrap').addEventListener('click',e=>{if(e.target.closest('[data-close]')
   const ad=e.target.closest('[data-add-day]');if(ad){openAdd(ad.dataset.addDay);return}
   const bk=e.target.closest('[data-back]');if(bk){FULL||isPhone()?openDay(bk.dataset.back):closeSheet()}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('sheet-wrap').hidden&&!$('sheet').classList.contains('wide'))closeSheet()});
-const swatchHTML=cur=>'<div class="sws">'+[['','def'],...CKEYS.map(c=>[c,c])].map(([v,c])=>'<label class="c-'+c+'" title="'+(v?CNAME[v]:'기본')+'"><input type="radio" name="col" value="'+v+'"'+((cur||'')===v?' checked':'')+'><span></span></label>').join('')+'</div>';
+const swatchHTML=cur=>'<div class="sws">'+[['','def'],...CKEYS.map(c=>[c,c])].map(([v,c])=>'<label class="c-'+c+'" title="'+(v?CNAME[v]:'자동 (무작위)')+'"><input type="radio" name="col" value="'+v+'"'+((cur||'')===v?' checked':'')+'><span></span></label>').join('')+'</div>';
 const stamp=()=>({by:me.uid,byName:nameOf(me.uid),updated:Date.now()});
 function openAdd(k){
   openSheet('<h2>일정 추가</h2><form id="add" class="fl" style="gap:10px;font-size:14px;color:var(--fg)">'+

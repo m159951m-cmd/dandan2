@@ -1093,7 +1093,7 @@ const hashId=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))>>>0;r
 const GROUP_COLOR={'과장':'pink','중등장학':'sky','중등인사':'violet','교육과정':'green','교직단체':'orange'};
 const groupOf=t=>{const m=String(t.title||'').match(/^\[([^\]]+)\]/);return t.cat&&t.cat!=='업무'?t.cat:m?m[1]:''};
 const groupColor=g=>GROUP_COLOR[g]||(g?['yellow','sky','green','violet','orange'][hashId(g)%5]:'yellow');
-const colorOf=t=>t.owner===DEPT_ID?groupColor(groupOf(t)):t.color&&COLORS[t.color]?t.color:(isMulti(t)?CKEYS[hashId(t.id)%CKEYS.length]:'');
+const colorOf=t=>t.owner===DEPT_ID?groupColor(groupOf(t)):t.color&&COLORS[t.color]?t.color:CKEYS[hashId(t.id)%CKEYS.length];
 const cCls=t=>{const c=colorOf(t);return c?' c-'+c:''};
 const md=s=>{const d=parse(s);return (d.getMonth()+1)+'/'+d.getDate()+'('+DOW[d.getDay()]+')'};
 const rangeLabel=t=>isMulti(t)?md(t.date)+' ~ '+md(endOf(t)):md(t.date);
@@ -1101,7 +1101,7 @@ const nthDay=(t,k)=>daysBetween(t.date,k)+1;
 const rngTag=(t,k)=>isMulti(t)?'<span class="rng'+cCls(t)+'">'+rangeLabel(t)+(k?' · '+nthDay(t,k)+'/'+spanDays(t)+'일차':' · '+spanDays(t)+'일')+'</span>':'';
 const dotTag=t=>colorOf(t)?'<span class="dot'+cCls(t)+'"></span>':'';
 function swatches(name,cur){
-  return '<div class="swatches" role="radiogroup" aria-label="색">'+['',...CKEYS].map(c=>'<label class="sw'+(c?' c-'+c:'')+'"><input type="radio" name="'+name+'" value="'+c+'"'+((cur||'')===c?' checked':'')+'><span>'+(c?COLORS[c]:'자동')+'</span></label>').join('')+'</div>';
+  return '<div class="swatches" role="radiogroup" aria-label="색">'+['',...CKEYS].map(c=>'<label class="sw'+(c?' c-'+c:'')+'"><input type="radio" name="'+name+'" value="'+c+'"'+((cur||'')===c?' checked':'')+'><span>'+(c?COLORS[c]:'자동 (무작위)')+'</span></label>').join('')+'</div>';
 }
 const pickColor=(root,name)=>{const r=root.querySelector('input[name='+name+']:checked');return r?r.value:''};
 /* 한 줄(주)에서 여러 날 일정이 같은 높이에 이어지도록 줄 번호를 정함 */
