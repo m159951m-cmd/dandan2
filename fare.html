@@ -71,7 +71,7 @@ ol{margin:0;padding-left:20px}
       <button type="button" id="dl" disabled>엑셀 내려받기</button>
     </div>
     <div class="sum" id="sum"></div>
-    <div class="legend"><span class="tag k">카카오내비</span>카카오 추천경로 거리 · <span class="tag o">OSRM</span>카카오내비가 안 될 때 쓴 도로거리 · <span class="tag h">거주지</span>거주지 출발이 더 짧아 거주지 기준 · 장소가 틀리면 「찾은 장소」에서 다른 곳을 고르고, 거리는 노란 칸에서 직접 고칠 수 있어요.</div>
+    <div class="legend"><span class="tag k">카카오내비</span>카카오 추천경로 거리 · <span class="tag o">OSRM</span>카카오내비가 안 될 때 쓴 도로거리 · <span class="tag h">거주지</span>거주지 출발이 더 짧아 거주지 기준(엑셀의 출발 칸도 거주지로 고치고 파랑 글씨) · 장소가 틀리면 「찾은 장소」에서 다른 곳을 고르고, 거리는 노란 칸에서 직접 고칠 수 있어요.</div>
     <div class="tw"><table><thead><tr><th>운임으로</th><th>행</th><th>출장일</th><th>출장자</th><th>출장지 → 도착</th><th>찾은 장소</th><th>기준</th><th>왕복 km</th><th>유종</th><th>유가</th><th>연비</th><th>운임</th><th>기존 대중교통비</th><th>메모</th></tr></thead><tbody id="tb"></tbody></table></div>
   </div>
 </main>
@@ -385,6 +385,18 @@ async function build() {
   pf.appendChild(fg); pf.appendChild(bg); fill.appendChild(pf); fills.appendChild(fill);
   const fillId = kids(fills, 'fill').length - 1; fills.setAttribute('count', kids(fills, 'fill').length);
   const xfList = kids(xfs, 'xf'), sMap = {};
+  // 파랑 글씨 (거주지에서 출발로 고친 칸)
+  const fonts = stDoc.getElementsByTagName('fonts')[0], fontList = kids(fonts, 'font'), bMap = {};
+  const blue = s => { s = +(s || 0); if (bMap[s] != null) return bMap[s];
+    const x = (xfList[s] || xfList[0]).cloneNode(true), f = (fontList[+(x.getAttribute('fontId') || 0)] || fontList[0]).cloneNode(true);
+    for (const c of kids(f, 'color')) f.removeChild(c);
+    const col = stDoc.createElementNS(NS, 'color'); col.setAttribute('rgb', 'FF0070C0');
+    const ORDER = ['b', 'i', 'strike', 'condense', 'extend', 'outline', 'shadow', 'u', 'vertAlign', 'sz'];
+    const after = [...f.childNodes].filter(n => n.nodeType === 1 && ORDER.includes(n.localName)).pop();
+    f.insertBefore(col, after ? after.nextSibling : f.firstChild);
+    fonts.appendChild(f); fonts.setAttribute('count', kids(fonts, 'font').length);
+    x.setAttribute('fontId', kids(fonts, 'font').length - 1); x.setAttribute('applyFont', '1');
+    xfs.appendChild(x); const n = kids(xfs, 'xf').length - 1; xfs.setAttribute('count', n + 1); return bMap[s] = n };
   const yel = s => { s = +(s || 0); if (sMap[s] != null) return sMap[s]; const x = (xfList[s] || xfList[0]).cloneNode(true); x.setAttribute('fillId', fillId); x.setAttribute('applyFill', '1'); xfs.appendChild(x); const n = kids(xfs, 'xf').length - 1; xfs.setAttribute('count', n + 1); return sMap[s] = n };
   // 칸 쓰기
   const rowEl = {}; for (const r of doc.getElementsByTagName('row')) rowEl[r.getAttribute('r')] = r;
@@ -409,6 +421,7 @@ async function build() {
     const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t); if (!p || f == null) continue;
     const r = t.r;
     put(C['이동거리'] + r, { n: t.km });
+    if (t.basis === 'home' && t.home && C['출발']) { const el = cell(C['출발'] + r), sv = el.getAttribute('s'); clear(el); el.setAttribute('s', blue(sv)); el.setAttribute('t', 'inlineStr'); const is = doc.createElementNS(NS, 'is'), tt = doc.createElementNS(NS, 't'); tt.textContent = t.home; is.appendChild(tt); el.appendChild(is) }
     if (t.fuelFrom) put(C['유종'] + r, { s: t.fuel });
     const effR = M.effRef[ft] || String(M.effVal[ft]);
     put(C['운임'] + r, { f: 'ROUNDDOWN(' + C['이동거리'] + r + '*' + p.ref + '/' + effR + ',-1)', n: f });
