@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운임 일괄 계산</title>
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--surface:#fff;--line:#d3e7f7;--fg:#1d2b3a;--muted:#5d7387;--accent:#1e88d6;--soft:#e1f1fd;--hi:#c2410c;--ok:#1f8a5b;--okbg:#ddf4e8;--warn:#fff4d6;--yel:#fff2cc;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(160deg,#e3f2ff,#f4fbff 50%,#e6f8f6) fixed;color:var(--fg);font:15px/1.6 "IBM Plex Sans KR",system-ui,"Malgun Gothic",sans-serif;padding:28px 16px 60px}
+main{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+a{color:var(--accent)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 6px 24px rgba(30,136,214,.08)}
+h1{margin:0;font-size:24px}h2{margin:0;font-size:17px}
+.muted{color:var(--muted);font-size:13.5px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:#fff;padding:9px 16px;font-weight:500;color:inherit}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.drop{border:2px dashed #9cc8ea;border-radius:16px;padding:30px 16px;text-align:center;background:#f5faff;cursor:pointer}
+.drop.on{background:var(--soft);border-color:var(--accent)}
+.drop b{font-size:17px}
+.st{border-radius:12px;padding:10px 14px;font-size:14px;background:#f0f6fb}
+.st.ok{background:var(--okbg);color:#145c3c}.st.bad{background:#fde8e1;color:#8a2c0d}.st.warn{background:var(--warn);color:#6b4a00}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sum{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}.sum b{font-size:18px}
+.tw{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:70vh}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:1100px}
+th,td{border-bottom:1px solid #e6eef5;padding:6px 8px;text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:#eef6fd;font-weight:600;white-space:nowrap;z-index:1}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.keep td{color:#7a8794;background:#fafbfc}
+tr.err td{background:#fff6f3}
+td select{font:inherit;font-size:12.5px;max-width:230px;padding:3px;border:1px solid var(--line);border-radius:6px}
+td input.km{width:64px;font:inherit;text-align:right;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--yel)}
+.why{font-size:12px;color:#8a5a00}
+.tag{display:inline-block;font-size:11.5px;border-radius:6px;padding:0 6px;background:#eef2f6;color:#3f5162;margin-right:4px;white-space:nowrap}
+.tag.k{background:#fee500;color:#3b3200}.tag.o{background:#e7e9fb;color:#3b3f9a}.tag.h{background:#ffe8d6;color:#8a3b00}
+label.ck{display:flex;align-items:center;gap:6px;white-space:nowrap}
+label.ck input{width:18px;height:18px;accent-color:var(--accent)}
+.legend{font-size:13px;color:var(--muted)}
+ol{margin:0;padding-left:20px}
+</style>
+</head>
+<body>
+<main>
+  <div class="box">
+    <a href="./" class="muted" style="text-decoration:none">‹ 단단이</a>
+    <h1>운임 일괄 계산 <span class="muted" style="font-size:14px;font-weight:400">대중교통비 → 자가용 운임(연료비)</span></h1>
+    <ol class="muted">
+      <li>월별 「출장여비 정산신청내역」 엑셀을 아래에 끌어다 놓아요. <b>파일은 이 PC 안에서만 처리</b>되고, 카카오에는 출장지 이름만 보내요.</li>
+      <li>대중교통비가 들어 있는 줄을 찾아, 대중교통으로 보이는 건(타 시도 원거리 · 실비 · 영수증 금액 · 차량 없음 등)은 그대로 두고 나머지를 운임으로 바꿔요.</li>
+      <li>거리는 <b>카카오내비 추천경로</b>(안 되면 OSRM 도로거리)로 왕복을 계산해요. 근무지(경상남도교육청)와 거주지(부서원 유종 시트의 생근지) 중 짧은 쪽을 써요.</li>
+      <li>표에서 확인 · 수정한 뒤 <b>엑셀 내려받기</b>를 누르면 이동거리 · 운임(수식) · 유종이 채워지고 대중교통비는 비워진 파일이 나와요. 바뀐 칸은 노란색이에요.</li>
+    </ol>
+    <div class="st" id="key-st">카카오 연결 확인 중…</div>
+  </div>
+
+  <div class="box">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="엑셀 파일 고르기"><b>엑셀 파일(.xlsx)을 여기에 끌어다 놓거나 눌러서 고르세요</b><div class="muted">여비정산 · 주유소 · 참고 · 부서원 유종 시트가 들어 있는 파일</div></div>
+    <input type="file" id="file" accept=".xlsx" hidden>
+    <div class="st" id="st" hidden></div>
+  </div>
+
+  <div class="box" id="res" hidden>
+    <div class="bar">
+      <h2 style="margin-right:auto">계산 결과 <span class="muted" id="fname"></span></h2>
+      <button type="button" id="calc" class="primary">거리 계산하기</button>
+      <button type="button" id="dl" disabled>엑셀 내려받기</button>
+    </div>
+    <div class="sum" id="sum"></div>
+    <div class="legend"><span class="tag k">카카오내비</span>카카오 추천경로 거리 · <span class="tag o">OSRM</span>카카오내비가 안 될 때 쓴 도로거리 · <span class="tag h">거주지</span>거주지 출발이 더 짧아 거주지 기준 · 장소가 틀리면 「찾은 장소」에서 다른 곳을 고르고, 거리는 노란 칸에서 직접 고칠 수 있어요.</div>
+    <div class="tw"><table><thead><tr><th>운임으로</th><th>행</th><th>출장일</th><th>출장자</th><th>출장지 → 도착</th><th>찾은 장소</th><th>기준</th><th>왕복 km</th><th>유종</th><th>유가</th><th>연비</th><th>운임</th><th>기존 대중교통비</th><th>메모</th></tr></thead><tbody id="tb"></tbody></table></div>
+  </div>
+</main>
+<script src="jszip.min.js"></script>
+<script type="module">
+import { firebaseConfig } from "./config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { ready } from "./who.js";
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const won = n => n == null || n === '' ? '' : Math.round(+n).toLocaleString('ko-KR');
+const st = (t, k) => { const e = $('st'); e.hidden = !t; e.className = 'st' + (k ? ' ' + k : ''); e.innerHTML = t || '' };
+const ls = { get(k) { try { return localStorage.getItem(k) } catch (e) { return null } }, set(k, v) { try { localStorage.setItem(k, v) } catch (e) { } } };
+
+// ── 기준 ──
+const WORK = { city: '창원', name: '경상남도교육청' };
+const OFFICE = { 서울: '서울특별시교육청', 부산: '부산광역시교육청', 대구: '대구광역시교육청', 인천: '인천광역시교육청', 광주: '광주광역시교육청', 대전: '대전광역시교육청', 울산: '울산광역시교육청', 세종: '세종특별자치시교육청' };
+const cityKey = s => String(s || '').replace(/\s/g, '').replace(/^(경상남도|경남|경상북도|경북)/, '').replace(/(특별자치시|특별시|광역시|시|군)$/, '');
+const officeOf = c => { const k = cityKey(c); if (!k) return ''; if (k === WORK.city) return WORK.name; return OFFICE[k] || (k + '교육지원청') };
+const NEAR = new Set('창원 진주 통영 사천 김해 밀양 거제 양산 의령 함안 창녕 고성 남해 하동 산청 함양 거창 합천 부산 울산 대구'.split(' '));   // 차로 다니는 범위 (그 밖은 대중교통으로 봄)
+const TRANSIT = /실비|ktx|KTX|기차|열차|버스|항공|비행|공항|\S-\S/;
+const EFF_DEF = { 휘발유: 11.97, 경유: 12.52, LPG: 8.83, 하이브리드: 15.37 };
+
+// ── 카카오 키 · 거리 ──
+let KEY = '';
+const app = initializeApp(firebaseConfig), fs = getFirestore(app), auth = getAuth(app);
+(async () => {
+  try { await ready(auth); const s = await getDoc(doc(fs, 'settings', 'kakao')); KEY = s.exists() && s.data().restKey || '' } catch (e) { KEY = '' }
+  const k = $('key-st');
+  if (!KEY) { k.className = 'st bad'; k.innerHTML = '카카오 REST API 키가 없어요. 단단이 첫 화면 → <b>카톡으로 받기</b>에서 처음 넣는 그 키예요.'; return }
+  k.className = 'st ok'; k.innerHTML = '카카오 앱 키 연결됨 (아침 카톡에 쓰는 「나의 업무일정」 앱 키). 거리 계산을 누르면 카카오내비 길찾기가 되는지 함께 확인해요.';
+})();
+async function kget(url) {
+  const r = await fetch(url, { headers: { Authorization: 'KakaoAK ' + KEY } });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); const e = new Error('k' + r.status); e.msg = j.msg || j.message || ''; throw e }
+  return r.json();
+}
+const placeCache = {};
+async function searchPlace(q) {
+  if (placeCache[q]) return placeCache[q];
+  const j = await kget('https://dapi.kakao.com/v2/local/search/keyword.json?size=6&query=' + encodeURIComponent(q));
+  return placeCache[q] = (j.documents || []).map(d => ({ name: d.place_name, addr: d.road_address_name || d.address_name || '', x: +d.x, y: +d.y }));
+}
+async function officePt(name) {
+  const c = ls.get('fare-geo-' + name); if (c) try { return JSON.parse(c) } catch (e) { }
+  const L = await searchPlace(name); const hit = L.find(p => p.name.replace(/\s/g, '').includes(name.replace(/\s/g, ''))) || L[0];
+  if (!hit) throw new Error('장소를 못 찾음: ' + name);
+  ls.set('fare-geo-' + name, JSON.stringify(hit)); return hit;
+}
+let naviOK = null, naviErr = '';
+const routeCache = {};
+async function oneWay(a, b) {   // 편도 km, 출처
+  const key = a.x + ',' + a.y + '>' + b.x + ',' + b.y;
+  if (routeCache[key]) return routeCache[key];
+  if (naviOK !== false) {
+    try {
+      const j = await kget('https://apis-navi.kakaomobility.com/v1/directions?priority=RECOMMEND&origin=' + a.x + ',' + a.y + '&destination=' + b.x + ',' + b.y);
+      const r = j.routes && j.routes[0];
+      if (r && r.result_code === 0 && r.summary) { naviOK = true; return routeCache[key] = { km: r.summary.distance / 1000, src: 'kakao' } }
+      if (r && r.result_code) throw Object.assign(new Error('route'), { msg: r.result_msg || '' });
+    } catch (e) { if (naviOK == null) { naviOK = false; naviErr = (e.message || '') + (e.msg ? ' · ' + e.msg : '') } }
+  }
+  const r = await fetch('https://router.project-osrm.org/route/v1/driving/' + a.x + ',' + a.y + ';' + b.x + ',' + b.y + '?overview=false');
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.code !== 'Ok' || !j.routes || !j.routes[0]) throw new Error('도로 거리를 못 구했어요');
+  return routeCache[key] = { km: j.routes[0].distance / 1000, src: 'osrm' };
+}
+const kmRound = km => Math.round(km * 10) / 10;
+
+// ── xlsx 읽기 ──
+const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const parse = s => new DOMParser().parseFromString(s, 'application/xml');
+const ser = d => new XMLSerializer().serializeToString(d);
+const colNum = s => { let n = 0; for (const c of s) n = n * 26 + c.charCodeAt(0) - 64; return n };
+const colStr = n => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26 } return s };
+const splitRef = r => { const m = /^([A-Z]+)(\d+)$/.exec(r); return [m[1], +m[2]] };
+const kids = (el, tag) => [...el.childNodes].filter(n => n.nodeType === 1 && n.localName === tag);
+const kid = (el, tag) => kids(el, tag)[0] || null;
+const xdate = n => { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 864e5); return d.toISOString().slice(0, 10) };
+const norm = s => String(s ?? '').replace(/\s+/g, '');
+
+let X = null;   // { zip, name, sheets:{name:{path,doc,cells}}, ss, styles }
+async function loadXlsx(file) {
+  const zip = await JSZip.loadAsync(file);
+  const wbDoc = parse(await zip.file('xl/workbook.xml').async('string'));
+  const rels = parse(await zip.file('xl/_rels/workbook.xml.rels').async('string'));
+  const relMap = {}; for (const r of rels.getElementsByTagName('Relationship')) relMap[r.getAttribute('Id')] = r.getAttribute('Target');
+  let ss = [];
+  const ssf = zip.file('xl/sharedStrings.xml');
+  if (ssf) { const d = parse(await ssf.async('string')); ss = [...d.getElementsByTagName('si')].map(si => [...si.getElementsByTagName('t')].map(t => t.textContent).join('')) }
+  const sheets = {};
+  for (const s of wbDoc.getElementsByTagName('sheet')) {
+    const rid = s.getAttribute('r:id') || s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+    let t = relMap[rid]; if (!t) continue; t = t.replace(/^\//, ''); if (!t.startsWith('xl/')) t = 'xl/' + t;
+    sheets[s.getAttribute('name')] = { path: t, doc: null };
+  }
+  X = { zip, wbDoc, sheets, ss, name: file.name };
+}
+async function sheet(name) {
+  const s = X.sheets[name]; if (!s) return null;
+  if (!s.doc) {
+    s.doc = parse(await X.zip.file(s.path).async('string'));
+    s.cells = {};
+    for (const c of s.doc.getElementsByTagName('c')) s.cells[c.getAttribute('r')] = c;
+  }
+  return s;
+}
+function val(s, ref) {   // 셀 값 (수식이면 저장된 결과)
+  const c = s.cells[ref]; if (!c) return null;
+  const t = c.getAttribute('t'), v = kid(c, 'v');
+  if (t === 'inlineStr') { const is = kid(c, 'is'); return is ? [...is.getElementsByTagName('t')].map(x => x.textContent).join('') : '' }
+  if (!v) return null;
+  if (t === 's') return X.ss[+v.textContent] ?? '';
+  if (t === 'str' || t === 'e') return v.textContent;
+  if (t === 'b') return v.textContent === '1';
+  const n = +v.textContent; return isNaN(n) ? v.textContent : n;
+}
+const hasF = (s, ref) => { const c = s.cells[ref]; return !!(c && kid(c, 'f')) };
+function rowsOf(s) { const m = {}; for (const ref in s.cells) { const [c, r] = splitRef(ref); (m[r] = m[r] || {})[c] = ref } return m }
+function findHeader(s, need) {   // need: 글자 목록 → { row, col:{글자:열} }
+  const R = rowsOf(s);
+  for (const r of Object.keys(R).map(Number).sort((a, b) => a - b)) {
+    const col = {};
+    for (const c in R[r]) { const v = norm(val(s, R[r][c])); if (!v) continue; for (const k of need) if (!col[k] && (v === k || v.startsWith(k))) col[k] = c }
+    if (need.filter(k => col[k]).length >= Math.min(need.length, 5)) return { row: r, col, rows: R };
+  }
+  return null;
+}
+const findSheet = (...keys) => Object.keys(X.sheets).find(n => keys.some(k => norm(n).includes(k)));
+
+// ── 분석 ──
+let ROWS = [], META = null;
+async function analyze() {
+  const mainName = findSheet('여비정산') || Object.keys(X.sheets)[0];
+  const S = await sheet(mainName);
+  const H = findHeader(S, ['출장일', '출장자', '출발', '출장지', '도착', '이동거리', '유종', '운임', '대중교통비', '비고']);
+  if (!H) throw new Error('「여비정산」 시트에서 제목 줄(출장일 · 출장자 · 출발 · 출장지 · 도착 · 이동거리 · 유종 · 운임 · 대중교통비 · 비고)을 못 찾았어요.');
+  const need = ['출장일', '출장자', '출발', '출장지', '도착', '이동거리', '유종', '운임', '대중교통비'].filter(k => !H.col[k]);
+  if (need.length) throw new Error('「여비정산」 시트에 ' + need.join(' · ') + ' 칸이 없어요.');
+  const C = H.col;
+  // 유가
+  const fuelName = findSheet('주유소', '유가');
+  const PS = fuelName ? await sheet(fuelName) : null;
+  const price = {};   // 'YYYY-MM-DD' → { row, 휘발유:col, ... }
+  let pcol = null;
+  if (PS) {
+    const ph = findHeader(PS, ['기간', '보통휘발유', '자동차용경유', 'LPG']);
+    if (ph) {
+      pcol = { 휘발유: ph.col['보통휘발유'], 경유: ph.col['자동차용경유'], LPG: ph.col['LPG'] };
+      const A = ph.col['기간'];
+      for (const r in ph.rows) {
+        if (+r <= ph.row || !ph.rows[r][A]) continue;
+        const v = val(PS, ph.rows[r][A]); let k = '';
+        if (typeof v === 'number') k = xdate(v);
+        else { const m = /(\d{4})\D+(\d{1,2})\D+(\d{1,2})/.exec(String(v || '')); if (m) k = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') }
+        if (k) price[k] = +r;
+      }
+    }
+  }
+  // 연비 (참고 시트 '적용비' 줄)
+  const effRef = {}, effVal = { ...EFF_DEF };
+  const refName = findSheet('참고');
+  if (refName) {
+    const RS = await sheet(refName), R = rowsOf(RS);
+    const rn = Object.keys(R).map(Number).find(r => Object.values(R[r]).some(ref => norm(val(RS, ref)) === '적용비'));
+    if (rn) {
+      const hr = Object.keys(R).map(Number).filter(r => r < rn).reverse().find(r => Object.values(R[r]).some(ref => norm(val(RS, ref)) === '휘발유'));
+      if (hr) for (const c in R[hr]) { const k = norm(val(RS, R[hr][c])); const v = val(RS, c + rn); if (EFF_DEF[k] && !effRef[k] && typeof v === 'number' && v > 4) { effRef[k] = "'" + refName + "'!$" + c + '$' + rn; effVal[k] = v } }
+    }
+  }
+  // 부서원 유종 · 거주지
+  const roster = {};
+  const rosName = findSheet('부서원', '유종');
+  if (rosName) {
+    const RS = await sheet(rosName); const h = findHeader(RS, ['성명', '유종', '생근지']) || findHeader(RS, ['성명', '유종', '거주지']);
+    if (h) for (const r in h.rows) if (+r > h.row) { const nm = norm(val(RS, h.rows[r][h.col['성명']] || '')); if (nm) roster[nm] = { fuel: String(val(RS, (h.col['유종'] || 'Z') + r) || '').trim(), home: cityKey(val(RS, (h.col['생근지'] || h.col['거주지'] || 'Z') + r)) } }
+  }
+  // 대중교통 기준표
+  const table = {};
+  const tName = findSheet('대중교통기준');
+  if (tName) { const TS = await sheet(tName), R = rowsOf(TS); for (const r in R) { const a = val(TS, 'A' + r), b = val(TS, 'B' + r), c = val(TS, 'C' + r); if (a && b && typeof c === 'number') { table[norm(a) + '>' + norm(b)] = c; table[norm(b) + '>' + norm(a)] ??= c } } }
+
+  META = { mainName, S, C, PS, fuelName, pcol, price, effRef, effVal };
+  ROWS = [];
+  for (const r of Object.keys(H.rows).map(Number).filter(r => r > H.row).sort((a, b) => a - b)) {
+    const g = k => C[k] ? val(S, C[k] + r) : null;
+    const who = String(g('출장자') || '').trim(); if (!who) continue;
+    const pub = g('대중교통비'); if (typeof pub !== 'number' || pub <= 0) continue;
+    const dRaw = g('출장일'); let day = '';
+    if (typeof dRaw === 'number') day = xdate(dRaw); else { const m = /(\d{4})\D+(\d{1,2})\D+(\d{1,2})/.exec(String(dRaw || '')); if (m) day = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') }
+    const from = cityKey(g('출발') || WORK.city), place = String(g('출장지') || '').trim(), city = String(g('도착') || '').trim(), memo = String(g('비고') || '');
+    const ro = roster[norm(who)] || {};
+    let fuel = String(g('유종') || '').trim(), fuelFrom = '';
+    if (!fuel && ro.fuel) { fuel = ro.fuel; fuelFrom = 'roster' }
+    const why = [];
+    const cities = city.split(/[,·\s]+/).map(cityKey).filter(Boolean);
+    if (cities.some(c => !NEAR.has(c))) why.push('타 시도 원거리(' + city + ')');
+    if (TRANSIT.test(memo)) why.push('비고: ' + memo);
+    if (!hasF(S, C['대중교통비'] + r)) { const std = table[norm(from || '창원') + '>' + norm(cities[0] || '')] ?? table['창원>' + norm(cities[0] || '')]; if (std !== pub) why.push('영수증 금액으로 보임(' + won(pub) + ')') }
+    if (!fuel) why.push('차량 유종 없음');
+    const home = ro.home && ro.home !== WORK.city ? ro.home : '';
+    if (home && cities.includes(home)) why.push('출장지=거주지(' + home + ') → 거주지 정액 대상인지 확인');
+    ROWS.push({ r, who, day, from, place, city, memo, pub, fuel, fuelFrom, home, why, on: !why.length, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' });
+  }
+}
+
+// ── 운임 ──
+const ftype = f => /하이브리드/.test(f) ? '하이브리드' : /LPG|엘피지/i.test(f) ? 'LPG' : /경유|디젤/.test(f) ? '경유' : /휘발유|가솔린/.test(f) ? '휘발유' : '';
+function priceOf(t) {
+  const M = META, ft = ftype(t.fuel); if (!ft || !M.pcol) return null;
+  const pr = M.price[t.day]; const col = M.pcol[ft === '하이브리드' ? '휘발유' : ft];
+  if (!pr || !col) return null;
+  const v = val(M.PS, col + pr); return typeof v === 'number' ? { v, ref: "'" + M.fuelName + "'!$" + col + '$' + pr } : null;
+}
+function fareOf(t) {
+  const p = priceOf(t), ft = ftype(t.fuel), e = META.effVal[ft];
+  if (!p || !e || !(t.km > 0)) return null;
+  return Math.floor(t.km * p.v / e / 10) * 10;
+}
+
+// ── 거리 계산 ──
+function queryOf(t) {
+  let p = t.place.split(/[·,]|\s및\s/)[0].replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim();
+  const c = cityKey(t.city.split(/[,·]/)[0]);
+  if (!p || cityKey(p) === c) return c ? (c + (/(군)$/.test(t.city) || ['의령', '함안', '창녕', '고성', '남해', '하동', '산청', '함양', '거창', '합천'].includes(c) ? '군청' : '시청')) : '';
+  return c && !p.replace(/\s/g, '').includes(c) ? c + ' ' + p : p;
+}
+async function calcRow(t, keepPick) {
+  t.err = '';
+  try {
+    const c = cityKey(t.city.split(/[,·]/)[0]);
+    if (!keepPick || !t.cands) {
+      let L = await searchPlace(queryOf(t));
+      if (!L.length && t.place) L = await searchPlace(t.place.replace(/[()]/g, ' '));
+      if (!L.length && c) L = await searchPlace(c + '시청');
+      if (!L.length) throw new Error('장소를 못 찾았어요');
+      t.cands = L; const i = c ? L.findIndex(p => p.addr.includes(c)) : 0; t.pick = i < 0 ? 0 : i;
+    }
+    const dest = t.cands[t.pick];
+    const w = await oneWay(await officePt(WORK.name), dest);
+    let km = w.km, src = w.src, basis = 'work';
+    const forceWork = /근무지/.test(t.memo);
+    if (t.home && !forceWork) {
+      const h = await oneWay(await officePt(officeOf(t.home)), dest);
+      if (h.km < w.km) { km = h.km; src = h.src; basis = 'home' }
+    }
+    t.km = Math.round(km * 2); t.src = src; t.basis = basis; t.kmW = kmRound(w.km);
+  } catch (e) { t.err = e.message === 'k401' || e.message === 'k403' ? '카카오 장소검색이 막혀 있어요(' + e.message.slice(1) + ')' : (e.message || '오류') }
+}
+let busy = false;
+async function calcAll() {
+  if (busy) return; if (!KEY) { st('카카오 키가 없어서 계산할 수 없어요.', 'bad'); return }
+  busy = true; $('calc').disabled = true; $('dl').disabled = true;
+  const list = ROWS.filter(t => t.on && t.km == null);
+  let i = 0;
+  for (const t of list) { i++; st('거리 계산 중… ' + i + ' / ' + list.length + ' (' + esc(t.place) + ')'); await calcRow(t); render() }
+  busy = false; $('calc').disabled = false;
+  const bad = ROWS.filter(t => t.on && (t.err || !(t.km > 0) || fareOf(t) == null));
+  const navi = naviOK === true ? '카카오내비 추천경로로 계산했어요.' : naviOK === false ? '카카오내비 길찾기가 안 돼서(' + esc(naviErr) + ') OSRM 도로거리로 계산했어요. 카카오 개발자 앱에서 <b>카카오내비(모빌리티)</b> 사용을 켜면 다음부터 카카오내비 거리로 바뀌어요.' : '';
+  st((bad.length ? '⚠ ' + bad.length + '건은 확인이 필요해요(빨간 줄). ' : '✓ 계산 끝. ') + navi, bad.length ? 'warn' : naviOK === false ? 'warn' : 'ok');
+  $('dl').disabled = !ROWS.some(t => t.on && t.km > 0 && fareOf(t) != null);
+}
+
+// ── 표 ──
+function render() {
+  const on = ROWS.filter(t => t.on), keep = ROWS.filter(t => !t.on);
+  const fare = on.reduce((a, t) => a + (fareOf(t) || 0), 0), pubOn = on.reduce((a, t) => a + t.pub, 0);
+  $('sum').innerHTML = '<span>운임으로 바꿀 줄 <b>' + on.length + '</b>건</span><span>대중교통 그대로 <b>' + keep.length + '</b>건</span><span>바꿀 줄의 기존 대중교통비 <b>' + won(pubOn) + '</b>원</span><span>새 운임 합계 <b>' + won(fare) + '</b>원</span><span>차이 <b>' + (fare - pubOn >= 0 ? '+' : '') + won(fare - pubOn) + '</b>원</span>';
+  $('tb').innerHTML = ROWS.map((t, i) => {
+    const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t), err = t.on && (t.err || (t.km != null && f == null));
+    const pick = t.cands ? '<select data-pick="' + i + '" aria-label="찾은 장소">' + t.cands.map((c, j) => '<option value="' + j + '"' + (j === t.pick ? ' selected' : '') + '>' + esc(c.name) + ' · ' + esc(c.addr) + '</option>').join('') + '</select>' : '<span class="muted">' + (t.on ? '계산 전' : '') + '</span>';
+    const basis = t.km == null ? '' : '<span class="tag ' + (t.src === 'kakao' ? 'k">카카오내비' : 'o">OSRM') + '</span>' + (t.basis === 'home' ? '<span class="tag h">거주지 ' + esc(t.home) + '</span>' : '<span class="tag">근무지</span>');
+    const notes = [...t.why.map(w => '<span class="why">' + esc(w) + '</span>'), t.fuelFrom ? '유종은 부서원 유종 시트에서' : '', t.err ? '<span class="why">' + esc(t.err) + '</span>' : '', t.on && t.km != null && !p ? '<span class="why">출장일 유가를 주유소 시트에서 못 찾음</span>' : ''].filter(Boolean).join('<br>');
+    return '<tr class="' + (t.on ? '' : 'keep') + (err ? ' err' : '') + '"><td><label class="ck"><input type="checkbox" data-on="' + i + '"' + (t.on ? ' checked' : '') + '>운임</label></td><td class="n">' + t.r + '</td><td>' + esc(t.day.slice(5)) + '</td><td>' + esc(t.who) + '</td><td>' + esc(t.place) + ' → ' + esc(t.city) + '</td><td>' + pick + '</td><td>' + basis + '</td>' +
+      '<td class="n">' + (t.on ? '<input class="km" inputmode="decimal" data-km="' + i + '" value="' + (t.km ?? '') + '" aria-label="왕복 km">' : '') + '</td><td>' + esc(t.fuel) + (ft === '하이브리드' ? ' <span class="muted">(하이브리드 연비)</span>' : '') + '</td><td class="n">' + (p ? p.v.toLocaleString('ko-KR') : '') + '</td><td class="n">' + (ft ? META.effVal[ft] : '') + '</td><td class="n"><b>' + (t.on ? won(f) : '') + '</b></td><td class="n">' + won(t.pub) + '</td><td>' + notes + '</td></tr>';
+  }).join('');
+}
+$('tb').addEventListener('change', async e => {
+  const el = e.target;
+  if (el.dataset.on != null) { const t = ROWS[+el.dataset.on]; t.on = el.checked; render(); if (t.on && t.km == null && !busy && KEY) { busy = true; await calcRow(t); busy = false; render() } $('dl').disabled = !ROWS.some(x => x.on && x.km > 0 && fareOf(x) != null) }
+  else if (el.dataset.pick != null) { const t = ROWS[+el.dataset.pick]; t.pick = +el.value; busy = true; await calcRow(t, true); busy = false; render() }
+  else if (el.dataset.km != null) { const t = ROWS[+el.dataset.km]; const v = parseFloat(el.value); t.km = v > 0 ? v : null; t.src = t.src || 'manual'; render() }
+});
+
+// ── 엑셀 쓰기 ──
+function shiftF(f, dr, dc) {   // 공유 수식을 칸마다 풀어 쓸 때 상대 참조 옮기기
+  return f.split(/("[^"]*"|'[^']*')/).map((seg, i) => i % 2 ? seg : seg.replace(/(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(A-Za-z_])/g, (m, a, c, b, r, off, str) => {
+    const pv = off ? str[off - 1] : ''; if (/[A-Za-z0-9_.]/.test(pv)) return m;
+    return a + (a ? c : colStr(colNum(c) + dc)) + b + (b ? r : String(+r + dr));
+  })).join('');
+}
+async function build() {
+  const M = META, S = M.S, doc = S.doc, C = M.C;
+  // 공유 수식 풀기 (지우는 칸이 공유 수식의 첫 칸이어도 깨지지 않게)
+  const masters = {};
+  for (const c of doc.getElementsByTagName('c')) { const f = kid(c, 'f'); if (f && f.getAttribute('t') === 'shared' && f.getAttribute('ref')) masters[f.getAttribute('si')] = { c, f } }
+  for (const c of doc.getElementsByTagName('c')) {
+    const f = kid(c, 'f'); if (!f || f.getAttribute('t') !== 'shared') continue;
+    const m = masters[f.getAttribute('si')]; if (!m) continue;
+    if (f !== m.f) { const [mc, mr] = splitRef(m.c.getAttribute('r')), [cc, cr] = splitRef(c.getAttribute('r')); f.textContent = shiftF(m.f.textContent, cr - mr, colNum(cc) - colNum(mc)) }
+  }
+  for (const c of doc.getElementsByTagName('c')) { const f = kid(c, 'f'); if (f && f.getAttribute('t') === 'shared') { f.removeAttribute('t'); f.removeAttribute('si'); f.removeAttribute('ref') } }
+  // 노란 칸 스타일
+  const stDoc = parse(await X.zip.file('xl/styles.xml').async('string'));
+  const fills = stDoc.getElementsByTagName('fills')[0], xfs = stDoc.getElementsByTagName('cellXfs')[0];
+  const fill = stDoc.createElementNS(NS, 'fill'); const pf = stDoc.createElementNS(NS, 'patternFill'); pf.setAttribute('patternType', 'solid');
+  const fg = stDoc.createElementNS(NS, 'fgColor'); fg.setAttribute('rgb', 'FFFFF2CC'); const bg = stDoc.createElementNS(NS, 'bgColor'); bg.setAttribute('indexed', '64');
+  pf.appendChild(fg); pf.appendChild(bg); fill.appendChild(pf); fills.appendChild(fill);
+  const fillId = kids(fills, 'fill').length - 1; fills.setAttribute('count', kids(fills, 'fill').length);
+  const xfList = kids(xfs, 'xf'), sMap = {};
+  const yel = s => { s = +(s || 0); if (sMap[s] != null) return sMap[s]; const x = (xfList[s] || xfList[0]).cloneNode(true); x.setAttribute('fillId', fillId); x.setAttribute('applyFill', '1'); xfs.appendChild(x); const n = kids(xfs, 'xf').length - 1; xfs.setAttribute('count', n + 1); return sMap[s] = n };
+  // 칸 쓰기
+  const rowEl = {}; for (const r of doc.getElementsByTagName('row')) rowEl[r.getAttribute('r')] = r;
+  const cell = ref => {
+    if (S.cells[ref]) return S.cells[ref];
+    const [c, r] = splitRef(ref); let row = rowEl[r];
+    if (!row) throw new Error(r + '행이 없어요');
+    const el = doc.createElementNS(NS, 'c'); el.setAttribute('r', ref);
+    const after = kids(row, 'c').find(x => colNum(splitRef(x.getAttribute('r'))[0]) > colNum(c));
+    row.insertBefore(el, after || null); S.cells[ref] = el; return el;
+  };
+  const clear = el => { for (const n of [...el.childNodes]) el.removeChild(n); el.removeAttribute('t') };
+  const put = (ref, o) => {
+    const el = cell(ref); clear(el); el.setAttribute('s', yel(el.getAttribute('s')));
+    if (o.f) { const f = doc.createElementNS(NS, 'f'); f.textContent = o.f; el.appendChild(f) }
+    if (o.n != null) { const v = doc.createElementNS(NS, 'v'); v.textContent = String(o.n); el.appendChild(v) }
+    if (o.s != null) { el.setAttribute('t', 'inlineStr'); const is = doc.createElementNS(NS, 'is'), t = doc.createElementNS(NS, 't'); t.textContent = o.s; is.appendChild(t); el.appendChild(is) }
+  };
+  let n = 0;
+  for (const t of ROWS) {
+    if (!t.on || !(t.km > 0)) continue;
+    const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t); if (!p || f == null) continue;
+    const r = t.r;
+    put(C['이동거리'] + r, { n: t.km });
+    if (t.fuelFrom) put(C['유종'] + r, { s: t.fuel });
+    const effR = M.effRef[ft] || String(M.effVal[ft]);
+    put(C['운임'] + r, { f: 'ROUNDDOWN(' + C['이동거리'] + r + '*' + p.ref + '/' + effR + ',-1)', n: f });
+    put(C['대중교통비'] + r, {});
+    if (C['비고']) {
+      const old = String(val(S, C['비고'] + r) || '');
+      const add = t.home && !/근무지|거주지/.test(old) ? (t.basis === 'home' ? '거주지기준' : '근무지기준') : '';
+      if (add) put(C['비고'] + r, { s: old ? old + ', ' + add : add });
+    }
+    n++;
+  }
+  X.zip.file(S.path, ser(doc));
+  X.zip.file('xl/styles.xml', ser(stDoc));
+  // 열 때 다시 계산 · calcChain 지우기
+  const wb = X.wbDoc; let cp = wb.getElementsByTagName('calcPr')[0];
+  if (!cp) { cp = wb.createElementNS(NS, 'calcPr'); const before = ['oleSize', 'customWorkbookViews', 'pivotCaches', 'smartTagPr', 'smartTagTypes', 'webPublishing', 'fileRecoveryPr', 'webPublishObjects', 'extLst'].map(k => wb.getElementsByTagName(k)[0]).find(Boolean); wb.documentElement.insertBefore(cp, before || null) }
+  cp.setAttribute('fullCalcOnLoad', '1');
+  X.zip.file('xl/workbook.xml', ser(wb));
+  if (X.zip.file('xl/calcChain.xml')) {
+    X.zip.remove('xl/calcChain.xml');
+    const ct = parse(await X.zip.file('[Content_Types].xml').async('string')); for (const o of [...ct.getElementsByTagName('Override')]) if (/calcChain/.test(o.getAttribute('PartName'))) o.parentNode.removeChild(o); X.zip.file('[Content_Types].xml', ser(ct));
+    const rd = parse(await X.zip.file('xl/_rels/workbook.xml.rels').async('string')); for (const o of [...rd.getElementsByTagName('Relationship')]) if (/calcChain/.test(o.getAttribute('Target'))) o.parentNode.removeChild(o); X.zip.file('xl/_rels/workbook.xml.rels', ser(rd));
+  }
+  const blob = await X.zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = X.name.replace(/\.xlsx$/i, '') + '(운임 반영).xlsx'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return n;
+}
+$('dl').addEventListener('click', async () => {
+  $('dl').disabled = true;
+  try { const n = await build(); st('✓ ' + n + '건을 운임으로 바꾼 파일을 내려받았어요. 엑셀로 열면 합계가 다시 계산돼요. 다시 받으려면 파일을 새로 올려 주세요.', 'ok') }
+  catch (e) { console.error(e); st('파일을 만들지 못했어요: ' + esc(e.message), 'bad'); $('dl').disabled = false }
+});
+
+// ── 파일 올리기 ──
+async function open(file) {
+  if (!file) return;
+  if (!/\.xlsx$/i.test(file.name)) { st('.xlsx 파일만 돼요. (.xls는 엑셀에서 「다른 이름으로 저장 → Excel 통합 문서」로 바꿔 주세요)', 'bad'); return }
+  st('파일 읽는 중…');
+  try {
+    await loadXlsx(file); await analyze();
+    $('fname').textContent = '· ' + file.name; $('res').hidden = false; $('dl').disabled = true;
+    const miss = [!META.pcol && '주유소(유가) 시트', !Object.keys(META.effRef).length && '참고 시트 연비(기본값 사용)'].filter(Boolean);
+    st('대중교통비가 있는 줄 ' + ROWS.length + '건 중 ' + ROWS.filter(t => t.on).length + '건을 운임으로 바꿀 후보로 골랐어요. <b>거리 계산하기</b>를 눌러 주세요.' + (miss.length ? '<br>⚠ 못 찾은 것: ' + miss.join(', ') : ''), miss.length ? 'warn' : '');
+    render();
+  } catch (e) { console.error(e); st(esc(e.message || '파일을 읽지 못했어요'), 'bad') }
+}
+$('calc').addEventListener('click', calcAll);
+const drop = $('drop');
+drop.addEventListener('click', () => $('file').click());
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click() } });
+$('file').addEventListener('change', e => { open(e.target.files[0]); e.target.value = '' });
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('on') });
+drop.addEventListener('dragleave', () => drop.classList.remove('on'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('on'); open(e.dataTransfer.files[0]) });
+</script>
+</body>
+</html>
