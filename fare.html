@@ -71,7 +71,7 @@ ol{margin:0;padding-left:20px}
       <button type="button" id="dl" disabled>엑셀 내려받기</button>
     </div>
     <div class="sum" id="sum"></div>
-    <div class="legend"><span class="tag k">카카오내비</span>카카오 추천경로 거리 · <span class="tag o">OSRM</span>카카오내비가 안 될 때 쓴 도로거리 · <span class="tag h">거주지</span>거주지 출발이 더 짧아 거주지 기준(엑셀의 출발 칸도 거주지로 고치고 파랑 글씨) · 장소가 틀리면 「찾은 장소」에서 다른 곳을 고르고, 거리는 노란 칸에서 직접 고칠 수 있어요.</div>
+    <div class="legend"><span class="tag k">카카오내비</span>카카오 추천경로 거리 · <span class="tag o">OSRM</span>카카오내비가 안 될 때 쓴 도로거리 · <span class="tag h">거주지</span>거주지 출발이 더 짧아 거주지 기준(엑셀의 출발 칸은 거주지 기준이면 거주지, 근무지 기준이면 창원으로 맞추고 바꾼 칸은 파랑 글씨) · 장소가 틀리면 「찾은 장소」에서 다른 곳을 고르고, 거리는 노란 칸에서 직접 고칠 수 있어요.</div>
     <div class="tw"><table><thead><tr><th>운임으로</th><th>행</th><th>출장일</th><th>출장자</th><th>출장지 → 도착</th><th>찾은 장소</th><th>기준</th><th>왕복 km</th><th>유종</th><th>유가</th><th>연비</th><th>운임</th><th>기존 대중교통비</th><th>메모</th></tr></thead><tbody id="tb"></tbody></table></div>
   </div>
 </main>
@@ -421,15 +421,22 @@ async function build() {
     const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t); if (!p || f == null) continue;
     const r = t.r;
     put(C['이동거리'] + r, { n: t.km });
-    if (t.basis === 'home' && t.home && C['출발']) { const el = cell(C['출발'] + r), sv = el.getAttribute('s'); clear(el); el.setAttribute('s', blue(sv)); el.setAttribute('t', 'inlineStr'); const is = doc.createElementNS(NS, 'is'), tt = doc.createElementNS(NS, 't'); tt.textContent = t.home; is.appendChild(tt); el.appendChild(is) }
+    // 출발 칸을 실제 기준에 맞추기: 거주지 기준 → 거주지, 근무지 기준 → 창원 (바꾼 칸은 파랑 글씨)
+    const want = t.basis === 'home' && t.home ? t.home : WORK.city;
+    if (C['출발'] && cityKey(val(S, C['출발'] + r)) !== want) { const el = cell(C['출발'] + r), sv = el.getAttribute('s'); clear(el); el.setAttribute('s', blue(sv)); el.setAttribute('t', 'inlineStr'); const is = doc.createElementNS(NS, 'is'), tt = doc.createElementNS(NS, 't'); tt.textContent = want; is.appendChild(tt); el.appendChild(is) }
     if (t.fuelFrom) put(C['유종'] + r, { s: t.fuel });
     const effR = M.effRef[ft] || String(M.effVal[ft]);
     put(C['운임'] + r, { f: 'ROUNDDOWN(' + C['이동거리'] + r + '*' + p.ref + '/' + effR + ',-1)', n: f });
     put(C['대중교통비'] + r, {});
     if (C['비고']) {
       const old = String(val(S, C['비고'] + r) || '');
-      const add = t.home && !/근무지|거주지/.test(old) ? (t.basis === 'home' ? '거주지기준' : '근무지기준') : '';
-      if (add) put(C['비고'] + r, { s: old ? old + ', ' + add : add });
+      // 거주지가 창원이 아닌 사람: 비고에 실제 계산 기준(거주지기준/근무지기준)을 적고, 반대로 적혀 있던 건 고침
+      if (t.home) {
+        const lab = t.basis === 'home' ? '거주지기준' : '근무지기준';
+        const same = new RegExp(lab.slice(0, 3) + '\\s*기준').test(old) && !new RegExp((t.basis === 'home' ? '근무지' : '거주지') + '\\s*기준').test(old);
+        const nw = same ? old : /(근무지|거주지)\s*기준/.test(old) ? old.replace(/(근무지|거주지)\s*기준/g, lab) : (old ? old + ', ' + lab : lab);
+        if (nw !== old) put(C['비고'] + r, { s: nw });
+      }
     }
     n++;
   }
