@@ -537,7 +537,7 @@ async function fuelPanel() {
     '<p class="meta">' + y + '년 경남 평균판매가격: ' + (keys.length ? keys.length + '일치 (' + md(keys[0]) + ' ~ ' + md(keys[keys.length - 1]) + ')' : '아직 없어요') + '</p>' +
     (() => { const prov = keys.filter(k => ['g', 'd'].some(f => days[k][f] && !isFinal(days[k], f))); return prov.length ? '<p class="meta tv-warn">잠정 가격 ' + prov.length + '일: ' + prov.slice(-8).map(md).join(', ') + (prov.length > 8 ? ' 외' : '') + '</p>' : (keys.length ? '<p class="meta">모두 확정 가격이에요.</p>' : '') })() +
     '<p class="meta">매일 밤 오피넷 API로 그날 가격이 <b>잠정</b>으로 들어오고, 다음 날 아침 오피넷 홈페이지의 <b>확정</b> 가격으로 바뀌어요 (GitHub fuel-daily · fuel-final). 확정이 안 된 날은 아래처럼 파일을 올리면 확정값으로 바뀌고, 그 날짜를 쓴 정산서 단가도 같이 바뀌어요.</p>' +
-    '<ol class="tv-steps"><li><a href="' + OPINET + '" target="_blank" rel="noopener">오피넷 평균판매가격</a> → <b>지역별</b> 탭 → 구분 <b>일간</b>, 지역 <b>경남</b>, 제품 <b>보통휘발유 · 자동차용경유 · LPG</b> → 기간 고르고 조회 → <b>엑셀저장</b>(또는 CSV저장)</li><li>받은 파일을 아래 버튼으로 올려요. 과 엑셀의 <b>주유소</b> 시트가 있는 파일을 올려도 돼요.</li></ol>' +
+    '<ol class="tv-steps"><li><a href="' + OPINET + '" target="_blank" rel="noopener">오피넷 평균판매가격</a> → <b>지역별</b> 탭 → 구분 <b>일간</b>, 지역 <b>경남</b>, 제품 <b>보통휘발유 · 자동차용경유</b> (LPG는 <b>자동차충전소</b> → 평균판매가격 → 지역별 → 일간 · 경남) → 기간 고르고 조회 → <b>엑셀저장</b>(또는 CSV저장)</li><li>받은 파일을 아래 버튼으로 올려요. 과 엑셀의 <b>주유소</b> 시트가 있는 파일을 올려도 돼요.</li></ol>' +
     '<button type="button" class="btn primary" data-up>오피넷 파일 올리기</button>' +
     '<h3 style="margin-top:14px">전기 충전 단가 (원/kWh)</h3><p class="meta"><a href="' + EVURL + '" target="_blank" rel="noopener">무공해차 통합누리집 충전요금</a>의 기후에너지환경부 급속 <b>100~199kW</b> 요금. 바뀌면 바뀐 날짜와 함께 넣어 주세요.</p>' +
     '<ul class="tv-evl">' + ev.map(x => '<li>' + esc(x.from) + '부터 <b>' + x.p + '원</b></li>').join('') + '</ul>' +
@@ -555,6 +555,7 @@ async function fuelPanel() {
 const toKey = v => {
   if (v instanceof Date) return v.getUTCFullYear() + '-' + pad(v.getUTCMonth() + 1) + '-' + pad(v.getUTCDate());
   const s = String(v || ''); let m = s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/); if (m) return m[1] + '-' + pad(m[2]) + '-' + pad(m[3]);
+  m = s.match(/^\s*(\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일/); if (m) return '20' + m[1] + '-' + pad(m[2]) + '-' + pad(m[3]);   // 충전소 자료 '26년10월01일'
   if (/^\d{5}(\.\d+)?$/.test(s)) { const d = new Date(Date.UTC(1899, 11, 30) + Number(s) * 864e5); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) }
   return '';
 };
@@ -593,15 +594,18 @@ async function importOpinet(file) {
     const rows = await readTable(file);
     // 머리줄: 칸 하나가 통째로 '보통휘발유'(또는 '휘발유')이고, 칸이 3개 이상인 줄 (위쪽 설명 줄은 건너뜀)
     const hi = rows.findIndex(r => r.filter(v => String(v ?? '').trim()).length >= 3 && r.some(v => /^(보통)?휘발유$/.test(String(v ?? '').replace(/\s/g, ''))));
-    if (hi < 0) throw new Error('보통휘발유 칸을 찾지 못했어요');
-    const H = rows[hi].map(v => String(v || '').replace(/\s/g, ''));
+    // 자동차충전소(LPG) 지역별 자료: '기간 | 경남' 두 칸만 있음 → 경남 칸을 LPG로
+    const hl = hi < 0 ? rows.findIndex(r => r.some(v => /^기간$/.test(String(v ?? '').replace(/\s/g, ''))) && r.some(v => /^경남$/.test(String(v ?? '').replace(/\s/g, '')))) : -1;
+    if (hi < 0 && hl < 0) throw new Error('보통휘발유(또는 충전소 자료의 경남) 칸을 찾지 못했어요');
+    const isLpg = hi < 0; const hrow = isLpg ? hl : hi;
+    const H = rows[hrow].map(v => String(v || '').replace(/\s/g, ''));
     const col = re => H.findIndex(h => re.test(h));
-    const cd = col(/^(기간|일자|날짜|구분|일시)$/), cg = col(/^보통휘발유$/) >= 0 ? col(/^보통휘발유$/) : col(/^휘발유$/), cs = col(/^(자동차용)?경유$/), cl = col(/LPG|부탄/);
+    const cd = col(/^(기간|일자|날짜|구분|일시)$/), cg = isLpg ? -1 : (col(/^보통휘발유$/) >= 0 ? col(/^보통휘발유$/) : col(/^휘발유$/)), cs = isLpg ? -1 : col(/^(자동차용)?경유$/), cl = isLpg ? col(/^경남$/) : col(/LPG|부탄/);
     const byYear = {}; let n = 0;
-    for (const r of rows.slice(hi + 1)) {
+    for (const r of rows.slice(hrow + 1)) {
       const k = toKey(r[cd >= 0 ? cd : 0]); if (!k) continue;
       const ok = x => x > 300 && x < 5000 ? x : 0;   // 원/ℓ 범위를 벗어난 값은 버림
-      const g = ok(num(r[cg])), d = cs >= 0 ? ok(num(r[cs])) : 0, l = cl >= 0 ? ok(num(r[cl])) : 0; if (!g && !d && !l) continue;
+      const g = cg >= 0 ? ok(num(r[cg])) : 0, d = cs >= 0 ? ok(num(r[cs])) : 0, l = cl >= 0 ? ok(num(r[cl])) : 0; if (!g && !d && !l) continue;
       (byYear[k.slice(0, 4)] = byYear[k.slice(0, 4)] || {})[k] = { ...(g ? { g } : {}), ...(d ? { d } : {}), ...(l ? { l } : {}), fin: (g ? 'g' : '') + (d ? 'd' : '') + (l ? 'l' : '') }; n++;
     }
     if (!n) throw new Error('날짜별 가격을 찾지 못했어요');
