@@ -82,7 +82,26 @@ export async function priceFor(type, date) {
   if (!F.key) return null;
   const days = await fuelYear(date.slice(0, 4)); const row = days[date];
   if (!row || !row[F.key]) return null;
-  return { p: row[F.key], src: '오피넷 경남 ' + md(date) + ' ' + (F.key === 'g' ? '보통휘발유' : F.key === 'd' ? '자동차용경유' : 'LPG') + ' ' + row[F.key].toLocaleString('ko-KR') + '원/ℓ' };
+  return { p: row[F.key], fin: isFinal(row, F.key), src: srcOf(F.key, date, row) };
+}
+// 확정값 여부: 오피넷 홈페이지 자료(아침 자동 수집 또는 담당자가 올린 파일)면 확정, 매일 밤 API로 받은 값은 잠정
+const isFinal = (row, k) => String(row.fin || '').includes(k);
+const srcOf = (k, date, row) => '오피넷 경남 ' + md(date) + ' ' + (k === 'g' ? '보통휘발유' : k === 'd' ? '자동차용경유' : 'LPG') + ' ' + row[k].toLocaleString('ko-KR') + '원/ℓ' + (isFinal(row, k) ? '' : ' (잠정 · 확정값이 들어오면 자동으로 바뀌어요)');
+// 확정값이 들어온 날짜를 쓰는 정산서 단가를 확정값으로 맞추기 (직접 입력한 단가는 그대로)
+export async function syncFinalPrices(byYear) {
+  let n = 0;
+  try {
+    const snap = await getDocs(tbox());
+    for (const d of snap.docs) {
+      const t = d.data(), F = t.fuel && FUEL[t.fuel.type];
+      if (!t.fuel || !t.fuel.on || t.fuel.manual || t.fuel.priceManual || !F || !F.key || !t.start) continue;
+      const row = (byYear[t.start.slice(0, 4)] || {})[t.start];
+      if (!row || !row[F.key] || !isFinal(row, F.key)) continue;
+      if (num(t.fuel.price) === row[F.key] && !/잠정/.test(t.fuel.src || '')) continue;
+      await updateDoc(tdoc(d.id), { 'fuel.price': row[F.key], 'fuel.src': srcOf(F.key, t.start, row) }); n++;
+    }
+  } catch (e) { console.error(e) }
+  return n;
 }
 const fuelAmt = (km, price, eff) => km > 0 && price > 0 && eff > 0 ? Math.floor(km * price / eff / 10) * 10 : 0;
 
@@ -367,7 +386,7 @@ function onChange(e) {
   if (['earea', 'edorm', 'epre', 'efar', 'eg1'].includes(n)) { cur.dayManual = cur.mealManual = false; renderForm(); return }
   if (['emeals', 'elunch'].includes(n)) cur.mealManual = false;
   if (n === 'fon') { cur.fuel.on = e.target.checked; renderForm(); return }
-  if (n === 'ftype') { cur.fuel.eff = ''; cur.fuel.priceManual = false; ls.set('tv-fuel', e.target.value); renderForm(); return }
+  if (n === 'ftype') { cur.fuel.type = e.target.value; cur.fuel.eff = ''; cur.fuel.priceManual = false; cur.fuel.price = ''; cur.fuel.src = ''; ls.set('tv-fuel', e.target.value); renderForm(); return }
   if (n === 'start' && cur.fuel.on && !cur.fuel.priceManual) refreshPrice();
   if (['place', 'city', 'home'].includes(n) && cur.fuel.dist) { const b = document.getElementById('tv-dist'); if (b) b.innerHTML = distHTML(cur) }
   if (e.target.dataset.k === 'mode') { renderForm(); return }
@@ -516,7 +535,8 @@ async function fuelPanel() {
   const w = document.createElement('div'); w.className = 'tv-pad-wrap';
   w.innerHTML = '<div class="tv-pad tv-fuelp"><h3>유가 자료</h3>' +
     '<p class="meta">' + y + '년 경남 평균판매가격: ' + (keys.length ? keys.length + '일치 (' + md(keys[0]) + ' ~ ' + md(keys[keys.length - 1]) + ')' : '아직 없어요') + '</p>' +
-    '<p class="meta">오피넷 유가정보 API를 연결해 두면 매일 밤 자동으로 들어와요 (GitHub fuel-daily). 연결 전이나 빠진 날은 아래처럼 파일로 올려요.</p>' +
+    (() => { const prov = keys.filter(k => ['g', 'd'].some(f => days[k][f] && !isFinal(days[k], f))); return prov.length ? '<p class="meta tv-warn">잠정 가격 ' + prov.length + '일: ' + prov.slice(-8).map(md).join(', ') + (prov.length > 8 ? ' 외' : '') + '</p>' : (keys.length ? '<p class="meta">모두 확정 가격이에요.</p>' : '') })() +
+    '<p class="meta">매일 밤 오피넷 API로 그날 가격이 <b>잠정</b>으로 들어오고, 다음 날 아침 오피넷 홈페이지의 <b>확정</b> 가격으로 바뀌어요 (GitHub fuel-daily · fuel-final). 확정이 안 된 날은 아래처럼 파일을 올리면 확정값으로 바뀌고, 그 날짜를 쓴 정산서 단가도 같이 바뀌어요.</p>' +
     '<ol class="tv-steps"><li><a href="' + OPINET + '" target="_blank" rel="noopener">오피넷 평균판매가격</a> → <b>지역별</b> 탭 → 구분 <b>일간</b>, 지역 <b>경남</b>, 제품 <b>보통휘발유 · 자동차용경유 · LPG</b> → 기간 고르고 조회 → <b>엑셀저장</b>(또는 CSV저장)</li><li>받은 파일을 아래 버튼으로 올려요. 과 엑셀의 <b>주유소</b> 시트가 있는 파일을 올려도 돼요.</li></ol>' +
     '<button type="button" class="btn primary" data-up>오피넷 파일 올리기</button>' +
     '<h3 style="margin-top:14px">전기 충전 단가 (원/kWh)</h3><p class="meta"><a href="' + EVURL + '" target="_blank" rel="noopener">무공해차 통합누리집 충전요금</a>의 기후에너지환경부 급속 <b>100~199kW</b> 요금. 바뀌면 바뀐 날짜와 함께 넣어 주세요.</p>' +
@@ -582,12 +602,13 @@ async function importOpinet(file) {
       const k = toKey(r[cd >= 0 ? cd : 0]); if (!k) continue;
       const ok = x => x > 300 && x < 5000 ? x : 0;   // 원/ℓ 범위를 벗어난 값은 버림
       const g = ok(num(r[cg])), d = cs >= 0 ? ok(num(r[cs])) : 0, l = cl >= 0 ? ok(num(r[cl])) : 0; if (!g && !d && !l) continue;
-      (byYear[k.slice(0, 4)] = byYear[k.slice(0, 4)] || {})[k] = { ...(g ? { g } : {}), ...(d ? { d } : {}), ...(l ? { l } : {}) }; n++;
+      (byYear[k.slice(0, 4)] = byYear[k.slice(0, 4)] || {})[k] = { ...(g ? { g } : {}), ...(d ? { d } : {}), ...(l ? { l } : {}), fin: (g ? 'g' : '') + (d ? 'd' : '') + (l ? 'l' : '') }; n++;
     }
     if (!n) throw new Error('날짜별 가격을 찾지 못했어요');
-    for (const [y, days] of Object.entries(byYear)) { const old = await fuelYear(y); const merged = { ...old, ...days }; await setDoc(doc(C.fs, 'settings', 'fuel-' + y), { days: merged, updated: Date.now(), byName: C.me.name }); fuelCache[y] = merged }
+    for (const [y, days] of Object.entries(byYear)) { const old = await fuelYear(y); const merged = { ...old }; for (const [k, v] of Object.entries(days)) { const o = old[k] || {}; merged[k] = { ...o, ...v, fin: [...new Set(String(o.fin || '') + v.fin)].join('') } } await setDoc(doc(C.fs, 'settings', 'fuel-' + y), { days: merged, updated: Date.now(), byName: C.me.name }); fuelCache[y] = merged }
     const ks = Object.values(byYear).flatMap(o => Object.keys(o)).sort();
-    C.toast('유가 ' + n + '일치를 저장했어요 (' + md(ks[0]) + ' ~ ' + md(ks[ks.length - 1]) + ')');
+    const fixed = await syncFinalPrices(Object.fromEntries(Object.keys(byYear).map(y => [y, fuelCache[y]])));
+    C.toast('유가 ' + n + '일치를 확정값으로 저장했어요 (' + md(ks[0]) + ' ~ ' + md(ks[ks.length - 1]) + ')' + (fixed ? ' · 정산서 ' + fixed + '건 단가를 확정값으로 바꿨어요' : ''));
     if (cur && cur.fuel.on && !cur.fuel.priceManual) refreshPrice();
   } catch (e) { console.error(e); C.toast('유가 자료를 읽지 못했어요: ' + (e.message || '')) }
 }
