@@ -96,6 +96,10 @@ const cityKey = s => String(s || '').replace(/\s/g, '').replace(/^(경상남도|
 const officeOf = c => { const k = cityKey(c); if (!k) return ''; if (k === WORK.city) return WORK.name; return OFFICE[k] || (k + '교육지원청') };
 const NEAR = new Set('창원 진주 통영 사천 김해 밀양 거제 양산 의령 함안 창녕 고성 남해 하동 산청 함양 거창 합천 부산 울산 대구'.split(' '));   // 차로 다니는 범위 (그 밖은 대중교통으로 봄)
 const TRANSIT = /실비|ktx|KTX|기차|열차|버스|항공|비행|공항|\S-\S/;
+const RATE_DAY = 25000, MEAL = [0, 8340, 16670, 25000], MEAL_AT = [9 * 60, 12 * 60, 18 * 60];
+const mealMoney = n => Math.floor(n / 3) * MEAL[3] + MEAL[n % 3];
+// 출장시간 '09:30~18:00' 안에 든 끼니 수 (첫날은 출발부터, 마지막 날은 도착까지)
+function mealCnt(days, time) { const P = time.split(/[~∼〜]/).map(x => { const m = /(\d{1,2})\s*:\s*(\d{2})/.exec(x || ''); return m ? +m[1] * 60 + +m[2] : null }); const a = P[0] ?? 0, b = P[1] ?? 24 * 60; let n = 0; for (let d = 0; d < days; d++) { const s0 = d ? 0 : a, e0 = d === days - 1 ? b : 24 * 60; n += MEAL_AT.filter(x => x >= s0 && x <= e0).length } return n }
 const HOME_FLAT = 20000;   // 출장지가 거주지인 출장(9시 전 출발 = 집에서 바로 감)의 일비 정액
 const EFF_DEF = { 휘발유: 11.97, 경유: 12.52, LPG: 8.83, 하이브리드: 15.37 };
 
@@ -282,7 +286,15 @@ async function analyze() {
       ROWS.push({ r, kind: 'flat', who, day, nDays, from, place, city, memo, pub: 0, oldFare: oldFare || 0, oldDay: g('일비'), oldMeal: g('식비'), fuel: '', fuelFrom: '', home, why: ['출장지=거주지(' + home + ') · ' + tm[0] + ' 출발 → 일비 ' + won(HOME_FLAT * nDays) + '원 정액 (식비 · 운임 · 대중교통비 없음)'], on: true, cands: null, pick: 0, km: null, src: '', basis: 'home', err: '' });
       continue;
     }
-    if (!(typeof pub0 === 'number' && pub0 > 0) && !(typeof oldFare === 'number' && oldFare > 0)) continue;
+    // 예전에 거주지 정액(또는 0원)으로 처리했는데 지금 기준으로는 정액이 아닌 줄(생근지가 바뀌었거나 9시 이후 출발) → 관외 여비로 되돌림
+    const J0 = g('일비'), K0 = g('식비');
+    const wasFlat = !/부지급|미지급|관내|동승|전세버스/.test(memo) && (/거주지\s*정액/.test(memo) || (+J0 === 0 && +K0 === 0 && !(+oldFare > 0) && !(+pub0 > 0) && cities.length > 0));
+    let restore = null;
+    if (wasFlat) {
+      const given = +((memo.match(/(\d+)\s*식\s*제공/) || [])[1] || 0), meals = mealCnt(nDays, String(g('출장시간') || ''));
+      restore = { day: RATE_DAY * nDays, meal: mealMoney(Math.max(0, meals - given)), meals, given };
+    }
+    if (!restore && !(typeof pub0 === 'number' && pub0 > 0) && !(typeof oldFare === 'number' && oldFare > 0)) continue;
     // 대중교통비가 있는 줄 → 운임으로 바꿀 후보 / 이미 운임이 들어간 줄 → 거리만 다시 계산 (동승 제외)
     const kind = typeof pub0 === 'number' && pub0 > 0 ? 'pub' : 're';
     if (kind === 're' && /동승/.test(memo)) continue;
@@ -290,7 +302,9 @@ async function analyze() {
     let fuel = String(g('유종') || '').trim(), fuelFrom = '';
     if (!fuel && ro.fuel) { fuel = ro.fuel; fuelFrom = 'roster' }
     const why = [], note = same ? '출장지=거주지(' + home + ')지만 ' + (tm ? tm[0] : '') + ' 출발이라 출근 후 출장 → 근무지 기준 관외 여비' : '';
-    if (kind === 're') { ROWS.push({ r, kind, oldFare, oldKm, who, day, from, place, city, memo, pub: 0, fuel, fuelFrom, home, same, note, why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
+    if (restore) why.length = 0;
+    if (kind === 're') { if (restore && !fuel) { ROWS.push({ r, kind, restore, oldFare: 0, oldKm, who, day, from, place, city, memo, pub: 0, fuel: '', fuelFrom, home, same, note: '정액(또는 0원)이었던 줄 → 관외 여비로 되돌림: 일비 ' + won(restore.day) + ' · 식비 ' + won(restore.meal) + ' (유종이 없어 운임은 없음)', why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
+      ROWS.push({ r, kind, restore, oldFare: oldFare || 0, oldKm, who, day, from, place, city, memo, pub: 0, fuel, fuelFrom, home, same, note: restore ? '정액(또는 0원)이었던 줄 → 관외 여비로 되돌림: 일비 ' + won(restore.day) + ' · 식비 ' + won(restore.meal) + ' + 운임' : note, why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
     if (cities.some(c => !NEAR.has(c))) why.push('타 시도 원거리(' + city + ')');
     if (TRANSIT.test(memo)) why.push('비고: ' + memo);
     if (!hasF(S, C['대중교통비'] + r)) { const std = table[norm(from || '창원') + '>' + norm(cities[0] || '')] ?? table['창원>' + norm(cities[0] || '')]; if (std !== pub) why.push('영수증 금액으로 보임(' + won(pub) + ')') }
@@ -346,20 +360,20 @@ let busy = false;
 async function calcAll() {
   if (busy) return; if (!KEY) { st('카카오 키가 없어서 계산할 수 없어요.', 'bad'); return }
   busy = true; $('calc').disabled = true; $('dl').disabled = true;
-  const list = ROWS.filter(t => t.on && t.km == null && t.kind !== 'flat');
+  const list = ROWS.filter(t => t.on && t.km == null && t.kind !== 'flat' && t.fuel);
   let i = 0;
   for (const t of list) { i++; st('거리 계산 중… ' + i + ' / ' + list.length + ' (' + esc(t.place) + ')'); await calcRow(t); render() }
   busy = false; $('calc').disabled = false;
   const bad = ROWS.filter(t => t.on && (t.err || !(t.km > 0) || fareOf(t) == null));
   const navi = naviOK === true ? '카카오내비 최단거리(카카오맵 경로 옵션 → 최단거리와 같은 기준)로 계산했어요.' : naviOK === false ? '카카오내비 길찾기가 안 돼서(' + esc(naviErr) + ') OSRM 도로거리로 계산했어요. 카카오 개발자 앱에서 <b>카카오내비(모빌리티)</b> 사용을 켜면 다음부터 카카오내비 거리로 바뀌어요.' : '';
   st((bad.length ? '⚠ ' + bad.length + '건은 확인이 필요해요(빨간 줄). ' : '✓ 계산 끝. ') + navi, bad.length ? 'warn' : naviOK === false ? 'warn' : 'ok');
-  $('dl').disabled = !ROWS.some(x => x.on && (x.kind === 'flat' || (x.km > 0 && fareOf(x) != null)));
+  $('dl').disabled = !ROWS.some(x => x.on && (x.kind === 'flat' || x.restore || (x.km > 0 && fareOf(x) != null)));
 }
 
 // ── 표 ──
 function render() {
   const on = ROWS.filter(t => t.on), keep = ROWS.filter(t => !t.on);
-  if (!busy) $('dl').disabled = !ROWS.some(x => x.on && (x.kind === 'flat' || (x.km > 0 && fareOf(x) != null)));
+  if (!busy) $('dl').disabled = !ROWS.some(x => x.on && (x.kind === 'flat' || x.restore || (x.km > 0 && fareOf(x) != null)));
   const onF = on.filter(t => t.kind !== 'flat'), nFlat = on.length - onF.length;
   const fare = onF.reduce((a, t) => a + (fareOf(t) || 0), 0), pubOn = onF.reduce((a, t) => a + (t.kind === 're' ? t.oldFare : t.pub), 0), nRe = onF.filter(t => t.kind === 're').length;
   $('sum').innerHTML = '<span>운임으로 바꿀 줄 <b>' + (onF.length - nRe) + '</b>건</span>' + (nFlat ? '<span>거주지 정액(일비 ' + won(HOME_FLAT) + '원) <b>' + nFlat + '</b>건</span>' : '') + '<span>운임 다시 계산 <b>' + nRe + '</b>건</span><span>대중교통 그대로 <b>' + keep.length + '</b>건</span><span>바꿀 줄의 기존 금액 <b>' + won(pubOn) + '</b>원</span><span>새 운임 합계 <b>' + won(fare) + '</b>원</span><span>차이 <b>' + (fare - pubOn >= 0 ? '+' : '') + won(fare - pubOn) + '</b>원</span>';
@@ -448,10 +462,17 @@ async function build() {
       if (C['비고']) { const old = String(val(S, C['비고'] + r) || ''), lab = '거주지 정액'; if (!old.includes(lab)) { const rest = old.replace(/(근무지|거주지)\s*기준/g, '').split(/\s*,\s*/).map(x => x.trim()).filter(Boolean); put(C['비고'] + r, { s: [...rest, lab].join(', ') }) } }
       n++; continue;
     }
+    if (t.on && t.restore) {   // 정액 → 관외 되돌리기: 일비 · 식비 · 출발 · 비고
+      const r = t.r;
+      if (C['일비']) put(C['일비'] + r, { n: t.restore.day });
+      if (C['식비']) put(C['식비'] + r, { n: t.restore.meal });
+      if (C['비고']) { const old = String(val(S, C['비고'] + r) || ''); if (/거주지\s*정액/.test(old)) put(C['비고'] + r, { s: old.replace(/,?\s*거주지\s*정액/g, '').replace(/^\s*,\s*/, '').trim() }) }
+      if (!t.fuel || !(t.km > 0)) { if (C['출발'] && cityKey(val(S, C['출발'] + r)) !== WORK.city) { const el = cell(C['출발'] + r), sv = el.getAttribute('s'); clear(el); el.setAttribute('s', blue(sv)); el.setAttribute('t', 'inlineStr'); const is = doc.createElementNS(NS, 'is'), tt = doc.createElementNS(NS, 't'); tt.textContent = WORK.city; is.appendChild(tt); el.appendChild(is) } n++; continue }
+    }
     if (!t.on || !(t.km > 0)) continue;
     const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t); if (!p || f == null) continue;
     const r = t.r;
-    if (t.kind === 're' && t.km === t.oldKm && f === t.oldFare) continue;   // 거리 · 운임이 그대로면 손대지 않음
+    if (t.kind === 're' && !t.restore && t.km === t.oldKm && f === t.oldFare) continue;   // 거리 · 운임이 그대로면 손대지 않음
     put(C['이동거리'] + r, { n: t.km });
     // 출발 칸을 실제 기준에 맞추기: 거주지 기준 → 거주지, 근무지 기준 → 창원 (바꾼 칸은 파랑 글씨)
     const want = t.basis === 'home' && t.home ? t.home : WORK.city;
