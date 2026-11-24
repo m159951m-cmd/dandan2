@@ -184,22 +184,62 @@ async function roadKm(a, b) {
 }
 const mapLink = (a, b) => 'https://map.kakao.com/link/by/car/' + encodeURIComponent(a.name) + ',' + a.y + ',' + a.x + '/' + encodeURIComponent(b.name) + ',' + b.y + ',' + b.x;
 const distErr = e => { const m = String(e && e.message || e); return m === 'nokey' ? '카카오 앱 키(REST API 키)가 아직 없어요. 단단이 첫 화면 → 카톡으로 받기에서 처음 한 번 넣는 그 키예요.' : /^kakao40[13]/.test(m) ? '카카오 장소 찾기가 막혀 있어요. 카카오 개발자 → 내 애플리케이션 → 카카오맵 사용 설정을 켜 주세요.' : /^kakao/.test(m) ? '카카오 장소 찾기에 연결하지 못했어요 (' + m.slice(5) + ').' : /^noplace/.test(m) ? m.slice(8) + '을(를) 지도에서 찾지 못했어요.' : m === 'route' ? '도로 거리 계산 서버에 연결하지 못했어요.' : '거리를 계산하지 못했어요.' };
+// 여러 곳을 들렀으면 출장지 칸에 들른 순서대로 쉼표로: "광남고, 세화여고" → 출발지 → 광남고 → 세화여고 → 출발지 한 바퀴
+const GUN = ['의령', '함안', '창녕', '고성', '남해', '하동', '산청', '함양', '거창', '합천'];
+const hall = c => c + (GUN.includes(c) ? '군청' : '시청');
+export function stopsOf(t) {
+  const raw = String(t.place || '').replace(/\s+등\s*$/, '').trim();
+  const parts = raw.split(/\s*[·,，]\s*|\s+및\s+|\s*&\s*|\s*→\s*|\s*>\s*/).map(x => x.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const cities = String(t.city || '').split(/[,·\s]+/).map(cityKey).filter(Boolean);
+  const L = (parts.length ? parts : ['']).map((p, i) => {
+    const c = cities.length === parts.length ? cities[i] : (cities.find(x => p.replace(/\s/g, '').includes(x)) || cities[0] || '');
+    if (!p || cityKey(p) === c) return { q: c ? hall(c) : '', c, label: c || p };
+    return { q: c && !p.replace(/\s/g, '').includes(c) ? c + ' ' + p : p, c, label: p };
+  }).filter(x => x.q);
+  return { stops: L, etc: /\s등\s*$/.test(String(t.place || '')) };
+}
+// 한 바퀴 거리(km, 소수 첫째 자리). 한 곳이면 편도 × 2
+async function tourKm(org, pts) {
+  if (pts.length === 1) return Math.round(Math.round(await roadKm(org, pts[0]) * 10) / 10 * 2 * 10) / 10;
+  if (!naviOff && pts.length <= 5) {
+    try {
+      const k = await kakaoRest();
+      const rr = await fetch('https://apis-navi.kakaomobility.com/v1/directions?priority=DISTANCE&origin=' + org.x + ',' + org.y + '&destination=' + org.x + ',' + org.y + '&waypoints=' + pts.map(p => p.x + ',' + p.y).join('|'), { headers: { Authorization: 'KakaoAK ' + k } });
+      const jj = await rr.json(); const ro = jj.routes && jj.routes[0];
+      if (rr.ok && ro && ro.result_code === 0 && ro.summary) return Math.round(ro.summary.distance / 100) / 10;
+    } catch (e) { }
+  }
+  const all = [org, ...pts, org]; let km = 0;
+  for (let i = 0; i < all.length - 1; i++) km += await roadKm(all[i], all[i + 1]);
+  return Math.round(km * 10) / 10;
+}
 let distBusy = false;
 async function autoDistance(pick) {
   if (distBusy) return; read(); const t = cur;
   if (!t.place && !t.city) { C.toast('출장지(장소)를 먼저 넣어 주세요'); return }
   distBusy = true; const box = document.getElementById('tv-dist'); if (box) box.innerHTML = '<span class="meta">지도에서 찾는 중…</span>';
   try {
-    let cands = t.fuel.dist && pick != null ? t.fuel.dist.cands : null;
-    if (!cands) { const q = t.city && !String(t.place || '').includes(cityKey(t.city)) ? cityKey(t.city) + ' ' + (t.place || '') : (t.place || t.city); cands = await searchPlace(q.trim(), 5); if (!cands.length && t.city) cands = await searchPlace(t.city, 3) }
-    if (!cands.length) throw new Error('noplace:' + (t.place || t.city));
-    const dest = cands[pick || 0], work = await officePoint(WORK.name);
-    const rt = km => Math.round(km * 10) / 10 * 2, late = homeCase(t) === 'late' || (() => { const a = hm(String(t.time || '').split(/[~∼〜-]/)[0]); return a != null && a >= 9 * 60 })();   // 9시 이후 출발 = 출근 후 출장 → 근무지 기준만   // 편도(소수 첫째 자리) × 2
-    const wkm = Math.round(rt(await roadKm(work, dest)) * 10) / 10;
+    // 들른 곳마다 장소 찾기 (pick = '몇 번째 곳:몇 번째 후보' 로 하나만 바꿀 수 있음)
+    const old = t.fuel.dist && t.fuel.dist.for === [t.place, t.city, t.home].join('|') ? t.fuel.dist.stops : null;
+    const SO = stopsOf(t); if (!SO.stops.length) throw new Error('noplace:' + (t.place || t.city));
+    const stops = [];
+    for (let k = 0; k < SO.stops.length; k++) {
+      const st = SO.stops[k], o = old && old[k] && old[k].label === st.label ? old[k] : null;
+      let cands = o ? o.cands : await searchPlace(st.q, 5);
+      if (!cands.length && st.c) cands = await searchPlace(hall(st.c), 3);
+      if (!cands.length) throw new Error('noplace:' + st.label);
+      let pk = o ? o.pick : Math.max(0, st.c ? cands.findIndex(p => p.addr.includes(st.c)) : 0);
+      if (pick != null) { const [a, b] = String(pick).includes(':') ? String(pick).split(':').map(Number) : [0, +pick]; if (a === k) pk = b }
+      stops.push({ label: st.label, cands, pick: pk });
+    }
+    const pts = stops.map(x => x.cands[x.pick]), dest = pts[0], work = await officePoint(WORK.name);
+    const late = homeCase(t) === 'late' || (() => { const a = hm(String(t.time || '').split(/[~∼〜-]/)[0]); return a != null && a >= 9 * 60 })();   // 9시 이후 출발 = 출근 후 출장 → 근무지 기준만
+    const wkm = await tourKm(work, pts);
     const hName = officeOf(t.home); let home = null, hkm = null;
-    if (hName && hName !== WORK.name && !late) { home = await officePoint(hName); hkm = Math.round(rt(await roadKm(home, dest)) * 10) / 10 }
-    const basis = hkm != null && hkm < wkm ? 'home' : 'work';   // 출장지=거주지 · 9시 이후 출발은 출근 후 출장이라 근무지 기준만
-    t.fuel.dist = { cands, pick: pick || 0, dest, work: { ...work, km: wkm, link: mapLink(work, dest) }, home: home ? { ...home, km: hkm, link: mapLink(home, dest) } : null, for: [t.place, t.city, t.home].join('|') };
+    if (hName && hName !== WORK.name && !late) { home = await officePoint(hName); hkm = await tourKm(home, pts) }
+    const basis = hkm != null && hkm < wkm ? 'home' : 'work';
+    const legs = o => [o, ...pts].slice(0, -1).map((a, k) => mapLink(a, pts[k]));
+    t.fuel.dist = { stops, etc: SO.etc, cands: stops[0].cands, pick: stops[0].pick, dest, work: { ...work, km: wkm, link: mapLink(work, dest), legs: legs(work) }, home: home ? { ...home, km: hkm, link: mapLink(home, dest), legs: legs(home) } : null, for: [t.place, t.city, t.home].join('|') };
     t.fuel.basis = basis; t.fuel.km = basis === 'home' ? hkm : wkm; t.from = fromOf(t);
     if (cur === t) renderForm();
   } catch (e) { console.error(e); const b = document.getElementById('tv-dist'); if (b) b.innerHTML = '<span class="tv-warn">' + esc(distErr(e)) + '</span> 지도에서 확인해 왕복 거리를 직접 넣어 주세요.' }
@@ -209,9 +249,10 @@ function distHTML(t) {
   const d = t.fuel.dist;
   if (!d) return '<span class="meta">출장지와 거주지를 넣고 <b>거리 자동 계산</b>을 누르면, 근무지(' + WORK.name + ')와 거주지(' + (officeOf(t.home) && officeOf(t.home) !== WORK.name ? esc(officeOf(t.home)) : '그 지역 교육지원청') + ') 중 <b>짧은 왕복 거리</b>가 들어가요.</span>';
   const stale = d.for !== [t.place, t.city, t.home].join('|');
-  const row = (k, o) => o ? '<li' + (t.fuel.basis === k ? ' class="on"' : '') + '><span>' + (k === 'work' ? '근무지' : '거주지') + ' · ' + esc(o.name) + '</span><b>왕복 ' + o.km + 'km</b><a href="' + o.link + '" target="_blank" rel="noopener">지도</a>' + (t.fuel.basis !== k ? '<button type="button" class="btn-x" data-dist-use="' + k + '">이걸로</button>' : '<em>적용</em>') + '</li>' : '';
+  const row = (k, o) => o ? '<li' + (t.fuel.basis === k ? ' class="on"' : '') + '><span>' + (k === 'work' ? '근무지' : '거주지') + ' · ' + esc(o.name) + '</span><b>' + (d.stops && d.stops.length > 1 ? '한 바퀴 ' : '왕복 ') + o.km + 'km</b>' + (o.legs && o.legs.length > 1 ? o.legs.map((l, k) => '<a href="' + l + '" target="_blank" rel="noopener">' + (k + 1) + '구간</a>').join(' ') : '<a href="' + o.link + '" target="_blank" rel="noopener">지도</a>') + (t.fuel.basis !== k ? '<button type="button" class="btn-x" data-dist-use="' + k + '">이걸로</button>' : '<em>적용</em>') + '</li>' : '';
   return (stale ? '<p class="tv-warn">출장지 · 거주지가 바뀌었어요. 다시 계산해 주세요.</p>' : '') +
-    '<p class="meta">도착: <b>' + esc(d.dest.name) + '</b> ' + esc(d.dest.addr) + (d.cands.length > 1 ? ' <select data-dist-pick aria-label="다른 장소 고르기">' + d.cands.map((c, i) => '<option value="' + i + '"' + (i === d.pick ? ' selected' : '') + '>' + esc(c.name) + ' · ' + esc(c.addr) + '</option>').join('') + '</select>' : '') + '</p>' +
+    (d.stops && d.stops.length > 1 ? '<p class="meta">들른 곳 ' + d.stops.length + '곳을 차례로 돌고 돌아오는 거리예요' + (d.etc ? ' · 「…등」이라 적힌 곳만 계산했어요 (확인)' : '') + '</p>' + d.stops.map((x, k) => '<p class="meta">' + (k + 1) + '. <b>' + esc(x.cands[x.pick].name) + '</b> ' + esc(x.cands[x.pick].addr) + (x.cands.length > 1 ? ' <select data-dist-pick aria-label="다른 장소 고르기">' + x.cands.map((c, i) => '<option value="' + k + ':' + i + '"' + (i === x.pick ? ' selected' : '') + '>' + esc(c.name) + ' · ' + esc(c.addr) + '</option>').join('') + '</select>' : '') + '</p>').join('') :
+    '<p class="meta">도착: <b>' + esc(d.dest.name) + '</b> ' + esc(d.dest.addr) + (d.etc ? ' <span class="tv-warn">「…등」이라 적힌 곳만 계산했어요 (확인)</span>' : '') + (d.cands.length > 1 ? ' <select data-dist-pick aria-label="다른 장소 고르기">' + d.cands.map((c, i) => '<option value="' + i + '"' + (i === d.pick ? ' selected' : '') + '>' + esc(c.name) + ' · ' + esc(c.addr) + '</option>').join('') + '</select>' : '') + '</p>') +
     '<ul class="tv-dists">' + row('work', d.work) + row('home', d.home) + '</ul>' +
     '<p class="meta">' + (basisNote(t) ? '비고에 <b>' + basisNote(t) + '</b>이 자동으로 들어가요. ' : '') + '거리는 카카오내비 최단거리예요 (카카오맵 길찾기 → 경로 옵션 → 최단거리). 다르면 직접 고쳐도 돼요.</p>';
 }
@@ -301,7 +342,8 @@ function renderForm() {
   f.innerHTML = '<div class="tv-head"><h3>' + (editId ? '정산서 수정' : '여비 정산서 작성') + ' <small class="tv-sub">국내여비 정산 신청서(관외 출장)</small></h3><span class="tv-heads"><label class="check tv-rider tv-edu"><input type="checkbox" name="eon"' + (t.edu && t.edu.on ? ' checked' : '') + '> 교육훈련(연수)이에요</label>' + (t.edu && t.edu.on ? '' : '<label class="check tv-rider"><input type="checkbox" name="rider"' + (t.rider ? ' checked' : '') + '> 동승자로 갔어요</label>') + '</span></div>' +
     '<fieldset><legend>신청인</legend><div class="row3">' + I('name', '성명', t.name, 'required') + I('rank', '직급(직위)', t.rank, 'placeholder="예: 장학사"') + I('dept', '소속', t.dept) + '</div></fieldset>' +
     '<fieldset><legend>출장 일정</legend><div class="row3">' + I('start', '출장 시작일', t.start, 'type="date" required') + I('end', '끝나는 날 (하루면 비움)', t.end, 'type="date"') + I('time', '출장 시간', t.time, 'placeholder="09:00~18:00"') + '</div>' +
-    '<div class="row3">' + I('place', '출장지 (장소)', t.place, 'required placeholder="예: 경주 한화리조트"') + I('city', '출장 지역 (시·군)', t.city, 'placeholder="예: 경주"') + I('home', '거주지 (시·군)', t.home) + '</div>' +
+    '<div class="row3">' + I('place', '출장지 (장소)', t.place, 'required placeholder="예: 경주 한화리조트 · 여러 곳은 들른 순서대로 쉼표로"') + I('city', '출장 지역 (시·군)', t.city, 'placeholder="예: 경주"') + I('home', '거주지 (시·군)', t.home) + '</div>' +
+    '<p class="meta" style="margin-top:-4px"><button type="button" class="btn" data-add-stop style="padding:4px 10px;font-size:13px">+ 들른 곳 추가</button> 여러 곳을 들렀으면 출장지에 <b>들른 순서대로 쉼표로</b> 적어요 (예: 광남고, 세화여고). 출장 지역도 순서대로 (예: 서울, 서울).</p>' +
     I('purpose', '출장 목적', t.purpose, 'required') + '</fieldset>' +
     '<fieldset><legend>일비 · 식비 · 숙박비</legend>' + (homeCase(t) === 'flat' ? '<p class="tv-warn">출장지가 거주지(' + esc(cityKey(t.home)) + ')이고 9시 전에 출발 → 집에서 바로 간 것으로 보고 <b>일비 ' + won(HOME_FLAT) + '원 정액</b>만 줘요 (식비 · 운임 없음).</p>' : homeCase(t) === 'late' ? '<p class="meta">출장지가 거주지(' + esc(cityKey(t.home)) + ')지만 9시 이후 출발이라 출근 후 출장 → <b>근무지 기준 관외 여비</b>로 계산해요.</p>' : '') + '<div class="row3"><label class="fl">일비 (' + c.days + '일)<input name="dayAmt" value="' + c.dayAmt + '" inputmode="numeric"></label>' +
     '<label class="fl">식사 제공받은 횟수 (전체 ' + c.meals + '끼 중)<input name="mealsGiven" type="number" min="0" max="' + c.meals + '" value="' + num(t.mealsGiven) + '"></label><label class="fl">식비<input name="mealAmt" value="' + c.mealAmt + '" inputmode="numeric"></label></div>' +
@@ -401,7 +443,7 @@ function onInput(e) {
 }
 function onChange(e) {
   if (!e.target.closest('#tv-form')) return;
-  if (e.target.matches('[data-dist-pick]')) { autoDistance(+e.target.value); return }
+  if (e.target.matches('[data-dist-pick]')) { autoDistance(e.target.value); return }
   const n = e.target.name;
   read();
   if (n === 'mealsGiven') cur.mealManual = false;
@@ -530,6 +572,7 @@ async function onSubmit(e) {
 let delAsk = null, delTm = 0;
 async function onClick(e) {
   if (e.target.closest('[data-dist-calc]')) { autoDistance(); return }
+  if (e.target.closest('[data-add-stop]')) { const f = document.querySelector('#tv-form [name=place]') || document.querySelector('[name=place]'); if (f) { f.value = f.value.trim() ? f.value.replace(/[\s,]+$/, '') + ', ' : ''; f.focus(); f.setSelectionRange(f.value.length, f.value.length) } return }
   const du = e.target.closest('[data-dist-use]'); if (du && cur.fuel.dist) { const k = du.dataset.distUse, o = cur.fuel.dist[k]; if (o) { read(); cur.fuel.basis = k; cur.fuel.km = o.km; cur.from = fromOf(cur); renderForm() } return }
   const t = e.target;
   const back = t.closest('[data-g-back]'); if (back) { if (unsub) { unsub(); unsub = null } C.openGather(back.dataset.gBack); return }
@@ -658,7 +701,8 @@ const COLS = ['순', '출장일', '출장시간', '출장자', '출발', '출장
 const WIDTH = [3.6, 17.1, 15.3, 11.5, 6.9, 51.9, 11.9, 8.4, 12.6, 10.4, 10.8, 10.8, 12.6, 12.9, 10.5, 5.9, 12.5, 6.9, 6.1, 52.9];
 function rowOf(t, i) {
   const c = calc(t), multi = t.end && t.end > t.start;
-  const notes = [basisNote(t), t.edu && t.edu.on ? eduNote(t) : '', t.rider ? '동승' : '', t.govCar ? '관용차량' : '', num(t.mealsGiven) ? num(t.mealsGiven) + '식 제공' : '', t.note || ''].filter(Boolean).join(', ');
+  const via = (() => { const S0 = stopsOf(t).stops; return t.fuel && t.fuel.on && S0.length > 1 ? S0.map(x => x.label).join('→') + ' 경유' : '' })();
+  const notes = [basisNote(t), via, t.edu && t.edu.on ? eduNote(t) : '', t.rider ? '동승' : '', t.govCar ? '관용차량' : '', num(t.mealsGiven) ? num(t.mealsGiven) + '식 제공' : '', t.note || ''].filter(Boolean).join(', ');
   const [yy, mm, dd] = t.start.split('-').map(Number);
   return [i, multi ? t.start + '~' + (t.end.slice(0, 7) === t.start.slice(0, 7) ? t.end.slice(8) : t.end.slice(5)) : new Date(Date.UTC(yy, mm - 1, dd)), t.time || '', t.name, c.homeFlat ? cityKey(t.home) : t.from || '', t.place || '', t.city || '',
     t.fuel && t.fuel.on && !c.homeFlat ? num(t.fuel.km) || null : null, t.fuel && t.fuel.on && !c.homeFlat ? (FUEL[t.fuel.type] || {}).n : null, c.dayAmt, c.mealAmt, c.fuel || null, c.toll || null, c.lodging || null, c.fareSum || null, c.cut || null, null, null, '관외', notes || null];
