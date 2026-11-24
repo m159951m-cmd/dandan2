@@ -194,7 +194,7 @@ async function autoDistance(pick) {
     if (!cands) { const q = t.city && !String(t.place || '').includes(cityKey(t.city)) ? cityKey(t.city) + ' ' + (t.place || '') : (t.place || t.city); cands = await searchPlace(q.trim(), 5); if (!cands.length && t.city) cands = await searchPlace(t.city, 3) }
     if (!cands.length) throw new Error('noplace:' + (t.place || t.city));
     const dest = cands[pick || 0], work = await officePoint(WORK.name);
-    const rt = km => Math.round(km * 10) / 10 * 2, late = homeCase(t) === 'late';   // 편도(소수 첫째 자리) × 2
+    const rt = km => Math.round(km * 10) / 10 * 2, late = homeCase(t) === 'late' || (() => { const a = hm(String(t.time || '').split(/[~∼〜-]/)[0]); return a != null && a >= 9 * 60 })();   // 9시 이후 출발 = 출근 후 출장 → 근무지 기준만   // 편도(소수 첫째 자리) × 2
     const wkm = Math.round(rt(await roadKm(work, dest)) * 10) / 10;
     const hName = officeOf(t.home); let home = null, hkm = null;
     if (hName && hName !== WORK.name && !late) { home = await officePoint(hName); hkm = Math.round(rt(await roadKm(home, dest)) * 10) / 10 }

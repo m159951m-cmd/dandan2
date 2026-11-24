@@ -52,7 +52,7 @@ ol{margin:0;padding-left:20px}
     <ol class="muted">
       <li>월별 「출장여비 정산신청내역」 엑셀을 아래에 끌어다 놓아요. <b>파일은 이 PC 안에서만 처리</b>되고, 카카오에는 출장지 이름만 보내요.</li>
       <li>이미 운임이 들어간 파일을 올리면 그 줄들의 거리를 다시 계산해서 달라진 줄만 고쳐요. 대중교통비가 들어 있는 줄을 찾아, 대중교통으로 보이는 건(타 시도 원거리 · 실비 · 영수증 금액 · 차량 없음 등)은 그대로 두고 나머지를 운임으로 바꿔요.</li>
-      <li>거리는 <b>카카오내비 최단거리</b>(카카오맵 길찾기 → 경로 옵션 → 최단거리와 같은 거리, 안 되면 OSRM 도로거리)로 편도를 구해 × 2 해요. 출장지가 거주지와 같고 9시 전에 출발했으면 일비만 2만원 정액, 9시 이후 출발이면 근무지 기준 관외 여비로 계산해요. 줄마다 「카카오맵에서 보기」로 확인할 수 있어요. 근무지(경상남도교육청)와 거주지(부서원 유종 시트의 생근지) 중 짧은 쪽을 써요.</li>
+      <li>거리는 <b>카카오내비 최단거리</b>(카카오맵 길찾기 → 경로 옵션 → 최단거리와 같은 거리, 안 되면 OSRM 도로거리)로 편도를 구해 × 2 해요. 출장지가 거주지와 같고 9시 전에 출발했으면 일비만 2만원 정액, 9시 이후 출발이면 근무지 기준 관외 여비로 계산해요. 줄마다 「카카오맵에서 보기」로 확인할 수 있어요. 근무지(경상남도교육청)와 거주지(부서원 유종 시트의 생근지) 중 짧은 쪽을 써요. 단, 9시 이후 출발은 출근했다가 간 것이라 근무지 기준으로만 계산해요.</li>
       <li>표에서 확인 · 수정한 뒤 <b>엑셀 내려받기</b>를 누르면 이동거리 · 운임(수식) · 유종이 채워지고 대중교통비는 비워진 파일이 나와요. 바뀐 칸은 노란색이에요.</li>
     </ol>
     <div class="st" id="key-st">카카오 연결 확인 중…</div>
@@ -283,7 +283,7 @@ async function analyze() {
     const tm = /(\d{1,2})\s*:\s*(\d{2})/.exec(String(g('출장시간') || '')), startMin = tm ? +tm[1] * 60 + +tm[2] : null;
     const same = !!(home && cities.includes(home)), early = startMin != null && startMin < 9 * 60;
     if (same && early && !/부지급|미지급|관내/.test(memo)) {   // 부지급 · 관내 적용으로 따로 처리한 줄은 그대로
-      ROWS.push({ r, kind: 'flat', who, day, nDays, from, place, city, memo, pub: 0, oldFare: oldFare || 0, oldDay: g('일비'), oldMeal: g('식비'), fuel: '', fuelFrom: '', home, why: ['출장지=거주지(' + home + ') · ' + tm[0] + ' 출발 → 일비 ' + won(HOME_FLAT * nDays) + '원 정액 (식비 · 운임 · 대중교통비 없음)'], on: true, cands: null, pick: 0, km: null, src: '', basis: 'home', err: '' });
+      ROWS.push({ r, startMin, kind: 'flat', who, day, nDays, from, place, city, memo, pub: 0, oldFare: oldFare || 0, oldDay: g('일비'), oldMeal: g('식비'), fuel: '', fuelFrom: '', home, why: ['출장지=거주지(' + home + ') · ' + tm[0] + ' 출발 → 일비 ' + won(HOME_FLAT * nDays) + '원 정액 (식비 · 운임 · 대중교통비 없음)'], on: true, cands: null, pick: 0, km: null, src: '', basis: 'home', err: '' });
       continue;
     }
     // 예전에 거주지 정액(또는 0원)으로 처리했는데 지금 기준으로는 정액이 아닌 줄(생근지가 바뀌었거나 9시 이후 출발) → 관외 여비로 되돌림
@@ -303,13 +303,13 @@ async function analyze() {
     if (!fuel && ro.fuel) { fuel = ro.fuel; fuelFrom = 'roster' }
     const why = [], note = same ? '출장지=거주지(' + home + ')지만 ' + (tm ? tm[0] : '') + ' 출발이라 출근 후 출장 → 근무지 기준 관외 여비' : '';
     if (restore) why.length = 0;
-    if (kind === 're') { if (restore && !fuel) { ROWS.push({ r, kind, restore, oldFare: 0, oldKm, who, day, from, place, city, memo, pub: 0, fuel: '', fuelFrom, home, same, note: '정액(또는 0원)이었던 줄 → 관외 여비로 되돌림: 일비 ' + won(restore.day) + ' · 식비 ' + won(restore.meal) + ' (유종이 없어 운임은 없음)', why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
-      ROWS.push({ r, kind, restore, oldFare: oldFare || 0, oldKm, who, day, from, place, city, memo, pub: 0, fuel, fuelFrom, home, same, note: restore ? '정액(또는 0원)이었던 줄 → 관외 여비로 되돌림: 일비 ' + won(restore.day) + ' · 식비 ' + won(restore.meal) + ' + 운임' : note, why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
+    if (kind === 're') { if (restore && !fuel) { ROWS.push({ r, startMin, kind, restore, oldFare: 0, oldKm, who, day, from, place, city, memo, pub: 0, fuel: '', fuelFrom, home, same, note: '정액(또는 0원)이었던 줄 → 관외 여비로 되돌림: 일비 ' + won(restore.day) + ' · 식비 ' + won(restore.meal) + ' (유종이 없어 운임은 없음)', why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
+      ROWS.push({ r, startMin, kind, restore, oldFare: oldFare || 0, oldKm, who, day, from, place, city, memo, pub: 0, fuel, fuelFrom, home, same, note: restore ? '정액(또는 0원)이었던 줄 → 관외 여비로 되돌림: 일비 ' + won(restore.day) + ' · 식비 ' + won(restore.meal) + ' + 운임' : note, why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
     if (cities.some(c => !NEAR.has(c))) why.push('타 시도 원거리(' + city + ')');
     if (TRANSIT.test(memo)) why.push('비고: ' + memo);
     if (!hasF(S, C['대중교통비'] + r)) { const std = table[norm(from || '창원') + '>' + norm(cities[0] || '')] ?? table['창원>' + norm(cities[0] || '')]; if (std !== pub) why.push('영수증 금액으로 보임(' + won(pub) + ')') }
     if (!fuel) why.push('차량 유종 없음');
-    ROWS.push({ r, kind, who, day, from, place, city, memo, pub, fuel, fuelFrom, home, same, note, why, on: !why.length, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' });
+    ROWS.push({ r, startMin, kind, who, day, from, place, city, memo, pub, fuel, fuelFrom, home, same, note, why, on: !why.length, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' });
   }
 }
 
@@ -349,7 +349,9 @@ async function calcRow(t, keepPick) {
     const wp = await officePt(WORK.name), w = await oneWay(wp, dest);
     let km = w.km, src = w.src, basis = 'work', org = wp, how = w.how;
     const forceWork = /근무지/.test(t.memo);
-    if (t.home && !forceWork && !String(t.city).split(/[,·\s]+/).map(cityKey).includes(t.home)) {
+    // 9시 이후 출발은 출근했다가 간 출장 → 근무지 기준만 (거주지 출발 거리는 보지 않음)
+    const afterWork = t.startMin != null && t.startMin >= 9 * 60;
+    if (t.home && !forceWork && !afterWork && !String(t.city).split(/[,·\s]+/).map(cityKey).includes(t.home)) {
       const h = await oneWay(await officePt(officeOf(t.home)), dest);
       if (h.km < w.km) { const hp = await officePt(officeOf(t.home)); km = h.km; src = h.src; basis = 'home'; org = hp; how = h.how }
     }
