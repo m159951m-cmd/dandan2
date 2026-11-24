@@ -52,7 +52,7 @@ ol{margin:0;padding-left:20px}
     <ol class="muted">
       <li>월별 「출장여비 정산신청내역」 엑셀을 아래에 끌어다 놓아요. <b>파일은 이 PC 안에서만 처리</b>되고, 카카오에는 출장지 이름만 보내요.</li>
       <li>이미 운임이 들어간 파일을 올리면 그 줄들의 거리를 다시 계산해서 달라진 줄만 고쳐요. 대중교통비가 들어 있는 줄을 찾아, 대중교통으로 보이는 건(타 시도 원거리 · 실비 · 영수증 금액 · 차량 없음 등)은 그대로 두고 나머지를 운임으로 바꿔요.</li>
-      <li>거리는 <b>카카오내비</b>(추천경로와 최단경로 중 짧은 쪽, 안 되면 OSRM 도로거리)로 왕복을 계산해요. 줄마다 「카카오맵에서 보기」로 확인할 수 있어요. 근무지(경상남도교육청)와 거주지(부서원 유종 시트의 생근지) 중 짧은 쪽을 써요.</li>
+      <li>거리는 <b>카카오내비 최단거리</b>(카카오맵 길찾기 → 경로 옵션 → 최단거리와 같은 거리, 안 되면 OSRM 도로거리)로 편도를 구해 × 2 해요. 출장지가 거주지와 같고 9시 전에 출발했으면 일비만 2만원 정액, 9시 이후 출발이면 근무지 기준 관외 여비로 계산해요. 줄마다 「카카오맵에서 보기」로 확인할 수 있어요. 근무지(경상남도교육청)와 거주지(부서원 유종 시트의 생근지) 중 짧은 쪽을 써요.</li>
       <li>표에서 확인 · 수정한 뒤 <b>엑셀 내려받기</b>를 누르면 이동거리 · 운임(수식) · 유종이 채워지고 대중교통비는 비워진 파일이 나와요. 바뀐 칸은 노란색이에요.</li>
     </ol>
     <div class="st" id="key-st">카카오 연결 확인 중…</div>
@@ -96,6 +96,7 @@ const cityKey = s => String(s || '').replace(/\s/g, '').replace(/^(경상남도|
 const officeOf = c => { const k = cityKey(c); if (!k) return ''; if (k === WORK.city) return WORK.name; return OFFICE[k] || (k + '교육지원청') };
 const NEAR = new Set('창원 진주 통영 사천 김해 밀양 거제 양산 의령 함안 창녕 고성 남해 하동 산청 함양 거창 합천 부산 울산 대구'.split(' '));   // 차로 다니는 범위 (그 밖은 대중교통으로 봄)
 const TRANSIT = /실비|ktx|KTX|기차|열차|버스|항공|비행|공항|\S-\S/;
+const HOME_FLAT = 20000;   // 출장지가 거주지인 출장(9시 전 출발 = 집에서 바로 감)의 일비 정액
 const EFF_DEF = { 휘발유: 11.97, 경유: 12.52, LPG: 8.83, 하이브리드: 15.37 };
 
 // ── 카카오 키 · 거리 ──
@@ -115,16 +116,17 @@ async function kget(url) {
 const placeCache = {};
 async function searchPlace(q) {
   if (placeCache[q]) return placeCache[q];
-  const j = await kget('https://dapi.kakao.com/v2/local/search/keyword.json?size=6&query=' + encodeURIComponent(q));
+  const j = await kget('https://dapi.kakao.com/v2/local/search/keyword.json?size=10&query=' + encodeURIComponent(q));
   return placeCache[q] = (j.documents || []).map(d => ({ name: d.place_name, addr: d.road_address_name || d.address_name || '', x: +d.x, y: +d.y }));
 }
 async function officePt(name) {
-  const c = ls.get('fare-geo2-' + name); if (c) try { return JSON.parse(c) } catch (e) { }
-  // 이름이 정확히 같은 곳 → '본청' → 이름이 들어간 곳 순서로 (교육청 별관·소속기관이 먼저 잡히지 않게)
+  const c = ls.get('fare-geo3-' + name); if (c) try { return JSON.parse(c) } catch (e) { }
+  // 이름이 정확히 같은 곳 → '본청' → 이름이 들어간 곳 중 이름이 가장 짧은 곳 (WEE센터 · 별관 같은 부속 기관이 잡히지 않게)
   const nm = name.replace(/\s/g, ''), L = await searchPlace(name), key = p => p.name.replace(/\s/g, '');
-  const hit = L.find(p => key(p) === nm) || L.find(p => key(p) === nm + '본청') || L.find(p => key(p).startsWith(nm) && !/별관|분원|제\d청사|지원센터|연구|원$/.test(key(p).slice(nm.length))) || L.find(p => key(p).includes(nm)) || L[0];
+  const inc = L.filter(p => key(p).includes(nm)).sort((a, b) => key(a).length - key(b).length);
+  const hit = L.find(p => key(p) === nm) || L.find(p => key(p) === nm + '본청') || inc[0] || L[0];
   if (!hit) throw new Error('장소를 못 찾음: ' + name);
-  ls.set('fare-geo2-' + name, JSON.stringify(hit)); return hit;
+  ls.set('fare-geo3-' + name, JSON.stringify(hit)); return hit;
 }
 let naviOK = null, naviErr = '';
 const routeCache = {};
@@ -133,15 +135,10 @@ async function oneWay(a, b) {   // 편도 km, 출처
   if (routeCache[key]) return routeCache[key];
   if (naviOK !== false) {
     try {
-      // 추천경로는 그때그때 교통 상황에 따라 길이 바뀌어 몇 km씩 달라질 수 있어서, 추천 · 최단 경로를 같이 보고 짧은 쪽을 씀
-      const go = pr => kget('https://apis-navi.kakaomobility.com/v1/directions?priority=' + pr + '&origin=' + a.x + ',' + a.y + '&destination=' + b.x + ',' + b.y);
-      const [j1, j2] = await Promise.all([go('RECOMMEND'), go('DISTANCE').catch(() => null)]);
-      const r = j1.routes && j1.routes[0], r2 = j2 && j2.routes && j2.routes[0];
-      if (r && r.result_code === 0 && r.summary) {
-        naviOK = true; let km = r.summary.distance / 1000, how = '추천';
-        if (r2 && r2.result_code === 0 && r2.summary && r2.summary.distance / 1000 < km) { km = r2.summary.distance / 1000; how = '최단' }
-        return routeCache[key] = { km, src: 'kakao', how };
-      }
+      // 최단거리 경로: 교통 상황과 상관없이 길 길이로만 골라서 언제 계산해도 같은 거리
+      const j1 = await kget('https://apis-navi.kakaomobility.com/v1/directions?priority=DISTANCE&origin=' + a.x + ',' + a.y + '&destination=' + b.x + ',' + b.y);
+      const r = j1.routes && j1.routes[0];
+      if (r && r.result_code === 0 && r.summary) { naviOK = true; return routeCache[key] = { km: r.summary.distance / 1000, src: 'kakao', how: '최단' } }
       if (r && r.result_code) throw Object.assign(new Error('route'), { msg: r.result_msg || '' });
     } catch (e) { if (naviOK == null) { naviOK = false; naviErr = (e.message || '') + (e.msg ? ' · ' + e.msg : '') } }
   }
@@ -219,7 +216,7 @@ let ROWS = [], META = null;
 async function analyze() {
   const mainName = findSheet('여비정산') || Object.keys(X.sheets)[0];
   const S = await sheet(mainName);
-  const H = findHeader(S, ['출장일', '출장자', '출발', '출장지', '도착', '이동거리', '유종', '운임', '대중교통비', '비고']);
+  const H = findHeader(S, ['출장일', '출장시간', '출장자', '출발', '출장지', '도착', '이동거리', '유종', '일비', '식비', '운임', '대중교통비', '비고']);
   if (!H) throw new Error('「여비정산」 시트에서 제목 줄(출장일 · 출장자 · 출발 · 출장지 · 도착 · 이동거리 · 유종 · 운임 · 대중교통비 · 비고)을 못 찾았어요.');
   const need = ['출장일', '출장자', '출발', '출장지', '도착', '이동거리', '유종', '운임', '대중교통비'].filter(k => !H.col[k]);
   if (need.length) throw new Error('「여비정산」 시트에 ' + need.join(' · ') + ' 칸이 없어요.');
@@ -272,28 +269,33 @@ async function analyze() {
     const g = k => C[k] ? val(S, C[k] + r) : null;
     const who = String(g('출장자') || '').trim(); if (!who) continue;
     const pub0 = g('대중교통비'), oldFare = g('운임'), oldKm = g('이동거리');
-    if (!(typeof pub0 === 'number' && pub0 > 0) && !(typeof oldFare === 'number' && oldFare > 0)) continue;
-    const dRaw = g('출장일'); let day = '';
-    if (typeof dRaw === 'number') day = xdate(dRaw); else { const m = /(\d{4})\D+(\d{1,2})\D+(\d{1,2})/.exec(String(dRaw || '')); if (m) day = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') }
+    const dRaw = g('출장일'); let day = '', nDays = 1;
+    if (typeof dRaw === 'number') day = xdate(dRaw); else { const m = /(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\s*~\s*(?:(\d{1,2})\D+)?(\d{1,2}))?/.exec(String(dRaw || '')); if (m) { day = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0'); if (m[5]) { const a = new Date(+m[1], +m[2] - 1, +m[3]), b = new Date(+m[1], (m[4] ? +m[4] : +m[2]) - 1, +m[5]); nDays = Math.max(1, Math.round((b - a) / 864e5) + 1) } } }
     const from = cityKey(g('출발') || WORK.city), place = String(g('출장지') || '').trim(), city = String(g('도착') || '').trim(), memo = String(g('비고') || '');
+    const ro = roster[norm(who)] || {};
+    const home = ro.home && ro.home !== WORK.city ? ro.home : '';
+    const cities = city.split(/[,·\s]+/).map(cityKey).filter(Boolean);
+    // 출장지 = 거주지: 출장 시작이 9시 전이면 집에서 바로 간 것으로 보고 일비만 정액, 9시 이후면 출근했다가 간 것이라 관외 규정대로(근무지 기준)
+    const tm = /(\d{1,2})\s*:\s*(\d{2})/.exec(String(g('출장시간') || '')), startMin = tm ? +tm[1] * 60 + +tm[2] : null;
+    const same = !!(home && cities.includes(home)), early = startMin != null && startMin < 9 * 60;
+    if (same && early && !/부지급|미지급|관내/.test(memo)) {   // 부지급 · 관내 적용으로 따로 처리한 줄은 그대로
+      ROWS.push({ r, kind: 'flat', who, day, nDays, from, place, city, memo, pub: 0, oldFare: oldFare || 0, oldDay: g('일비'), oldMeal: g('식비'), fuel: '', fuelFrom: '', home, why: ['출장지=거주지(' + home + ') · ' + tm[0] + ' 출발 → 일비 ' + won(HOME_FLAT * nDays) + '원 정액 (식비 · 운임 · 대중교통비 없음)'], on: true, cands: null, pick: 0, km: null, src: '', basis: 'home', err: '' });
+      continue;
+    }
+    if (!(typeof pub0 === 'number' && pub0 > 0) && !(typeof oldFare === 'number' && oldFare > 0)) continue;
     // 대중교통비가 있는 줄 → 운임으로 바꿀 후보 / 이미 운임이 들어간 줄 → 거리만 다시 계산 (동승 제외)
     const kind = typeof pub0 === 'number' && pub0 > 0 ? 'pub' : 're';
     if (kind === 're' && /동승/.test(memo)) continue;
     const pub = kind === 'pub' ? pub0 : 0;
-    const ro = roster[norm(who)] || {};
     let fuel = String(g('유종') || '').trim(), fuelFrom = '';
     if (!fuel && ro.fuel) { fuel = ro.fuel; fuelFrom = 'roster' }
-    const why = [];
-    if (kind === 're') { const home = ro.home && ro.home !== WORK.city ? ro.home : '';
-      ROWS.push({ r, kind, oldFare, oldKm, who, day, from, place, city, memo, pub: 0, fuel, fuelFrom, home, why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
-    const cities = city.split(/[,·\s]+/).map(cityKey).filter(Boolean);
+    const why = [], note = same ? '출장지=거주지(' + home + ')지만 ' + (tm ? tm[0] : '') + ' 출발이라 출근 후 출장 → 근무지 기준 관외 여비' : '';
+    if (kind === 're') { ROWS.push({ r, kind, oldFare, oldKm, who, day, from, place, city, memo, pub: 0, fuel, fuelFrom, home, same, note, why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
     if (cities.some(c => !NEAR.has(c))) why.push('타 시도 원거리(' + city + ')');
     if (TRANSIT.test(memo)) why.push('비고: ' + memo);
     if (!hasF(S, C['대중교통비'] + r)) { const std = table[norm(from || '창원') + '>' + norm(cities[0] || '')] ?? table['창원>' + norm(cities[0] || '')]; if (std !== pub) why.push('영수증 금액으로 보임(' + won(pub) + ')') }
     if (!fuel) why.push('차량 유종 없음');
-    const home = ro.home && ro.home !== WORK.city ? ro.home : '';
-    if (home && cities.includes(home)) why.push('출장지=거주지(' + home + ') → 거주지 정액 대상인지 확인');
-    ROWS.push({ r, kind, who, day, from, place, city, memo, pub, fuel, fuelFrom, home, why, on: !why.length, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' });
+    ROWS.push({ r, kind, who, day, from, place, city, memo, pub, fuel, fuelFrom, home, same, note, why, on: !why.length, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' });
   }
 }
 
@@ -333,38 +335,41 @@ async function calcRow(t, keepPick) {
     const wp = await officePt(WORK.name), w = await oneWay(wp, dest);
     let km = w.km, src = w.src, basis = 'work', org = wp, how = w.how;
     const forceWork = /근무지/.test(t.memo);
-    if (t.home && !forceWork) {
+    if (t.home && !forceWork && !String(t.city).split(/[,·\s]+/).map(cityKey).includes(t.home)) {
       const h = await oneWay(await officePt(officeOf(t.home)), dest);
       if (h.km < w.km) { const hp = await officePt(officeOf(t.home)); km = h.km; src = h.src; basis = 'home'; org = hp; how = h.how }
     }
-    t.km = Math.round(km * 2); t.src = src; t.basis = basis; t.kmW = kmRound(w.km); t.org = org; t.how = how; t.one = kmRound(km);
+    t.km = Math.round(kmRound(km) * 2 * 10) / 10; t.src = src; t.basis = basis; t.kmW = kmRound(w.km); t.org = org; t.how = how; t.one = kmRound(km);
   } catch (e) { t.err = e.message === 'k401' || e.message === 'k403' ? '카카오 장소검색이 막혀 있어요(' + e.message.slice(1) + ')' : (e.message || '오류') }
 }
 let busy = false;
 async function calcAll() {
   if (busy) return; if (!KEY) { st('카카오 키가 없어서 계산할 수 없어요.', 'bad'); return }
   busy = true; $('calc').disabled = true; $('dl').disabled = true;
-  const list = ROWS.filter(t => t.on && t.km == null);
+  const list = ROWS.filter(t => t.on && t.km == null && t.kind !== 'flat');
   let i = 0;
   for (const t of list) { i++; st('거리 계산 중… ' + i + ' / ' + list.length + ' (' + esc(t.place) + ')'); await calcRow(t); render() }
   busy = false; $('calc').disabled = false;
   const bad = ROWS.filter(t => t.on && (t.err || !(t.km > 0) || fareOf(t) == null));
-  const navi = naviOK === true ? '카카오내비 거리(추천 · 최단 경로 중 짧은 쪽)로 계산했어요.' : naviOK === false ? '카카오내비 길찾기가 안 돼서(' + esc(naviErr) + ') OSRM 도로거리로 계산했어요. 카카오 개발자 앱에서 <b>카카오내비(모빌리티)</b> 사용을 켜면 다음부터 카카오내비 거리로 바뀌어요.' : '';
+  const navi = naviOK === true ? '카카오내비 최단거리(카카오맵 경로 옵션 → 최단거리와 같은 기준)로 계산했어요.' : naviOK === false ? '카카오내비 길찾기가 안 돼서(' + esc(naviErr) + ') OSRM 도로거리로 계산했어요. 카카오 개발자 앱에서 <b>카카오내비(모빌리티)</b> 사용을 켜면 다음부터 카카오내비 거리로 바뀌어요.' : '';
   st((bad.length ? '⚠ ' + bad.length + '건은 확인이 필요해요(빨간 줄). ' : '✓ 계산 끝. ') + navi, bad.length ? 'warn' : naviOK === false ? 'warn' : 'ok');
-  $('dl').disabled = !ROWS.some(t => t.on && t.km > 0 && fareOf(t) != null);
+  $('dl').disabled = !ROWS.some(x => x.on && (x.kind === 'flat' || (x.km > 0 && fareOf(x) != null)));
 }
 
 // ── 표 ──
 function render() {
   const on = ROWS.filter(t => t.on), keep = ROWS.filter(t => !t.on);
-  const fare = on.reduce((a, t) => a + (fareOf(t) || 0), 0), pubOn = on.reduce((a, t) => a + (t.kind === 're' ? t.oldFare : t.pub), 0), nRe = on.filter(t => t.kind === 're').length;
-  $('sum').innerHTML = '<span>운임으로 바꿀 줄 <b>' + (on.length - nRe) + '</b>건</span><span>운임 다시 계산 <b>' + nRe + '</b>건</span><span>대중교통 그대로 <b>' + keep.length + '</b>건</span><span>바꿀 줄의 기존 금액 <b>' + won(pubOn) + '</b>원</span><span>새 운임 합계 <b>' + won(fare) + '</b>원</span><span>차이 <b>' + (fare - pubOn >= 0 ? '+' : '') + won(fare - pubOn) + '</b>원</span>';
+  if (!busy) $('dl').disabled = !ROWS.some(x => x.on && (x.kind === 'flat' || (x.km > 0 && fareOf(x) != null)));
+  const onF = on.filter(t => t.kind !== 'flat'), nFlat = on.length - onF.length;
+  const fare = onF.reduce((a, t) => a + (fareOf(t) || 0), 0), pubOn = onF.reduce((a, t) => a + (t.kind === 're' ? t.oldFare : t.pub), 0), nRe = onF.filter(t => t.kind === 're').length;
+  $('sum').innerHTML = '<span>운임으로 바꿀 줄 <b>' + (onF.length - nRe) + '</b>건</span>' + (nFlat ? '<span>거주지 정액(일비 ' + won(HOME_FLAT) + '원) <b>' + nFlat + '</b>건</span>' : '') + '<span>운임 다시 계산 <b>' + nRe + '</b>건</span><span>대중교통 그대로 <b>' + keep.length + '</b>건</span><span>바꿀 줄의 기존 금액 <b>' + won(pubOn) + '</b>원</span><span>새 운임 합계 <b>' + won(fare) + '</b>원</span><span>차이 <b>' + (fare - pubOn >= 0 ? '+' : '') + won(fare - pubOn) + '</b>원</span>';
   $('tb').innerHTML = ROWS.map((t, i) => {
+    if (t.kind === 'flat') return '<tr class="' + (t.on ? '' : 'keep') + '"><td><label class="ck"><input type="checkbox" data-on="' + i + '"' + (t.on ? ' checked' : '') + '>정액</label></td><td class="n">' + t.r + '</td><td>' + esc(t.day.slice(5)) + '</td><td>' + esc(t.who) + '</td><td>' + esc(t.place) + ' → ' + esc(t.city) + '</td><td colspan="2"><span class="tag h">거주지 ' + esc(t.home) + ' 정액</span></td><td colspan="4"></td><td class="n"><b>' + (t.on ? '일비 ' + won(HOME_FLAT * t.nDays) : '') + '</b></td><td class="n">일비 ' + won(t.oldDay) + '<br>식비 ' + won(t.oldMeal) + (t.oldFare ? '<br>운임 ' + won(t.oldFare) : '') + '</td><td><span class="why">' + esc(t.why[0]) + '</span></td></tr>';
     const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t), err = t.on && (t.err || (t.km != null && f == null));
     const pick = t.cands ? '<select data-pick="' + i + '" aria-label="찾은 장소">' + t.cands.map((c, j) => '<option value="' + j + '"' + (j === t.pick ? ' selected' : '') + '>' + esc(c.name) + ' · ' + esc(c.addr) + '</option>').join('') + '</select>' : '<span class="muted">' + (t.on ? '계산 전' : '') + '</span>';
     const basis = t.km == null ? '' : '<span class="tag ' + (t.src === 'kakao' ? 'k">카카오내비' : 'o">OSRM') + '</span>' + (t.basis === 'home' ? '<span class="tag h">거주지 ' + esc(t.home) + '</span>' : '<span class="tag">근무지</span>') +
       (t.org && t.cands ? '<div class="muted" style="font-size:12px;line-height:1.4;margin-top:3px">' + esc(t.org.name) + ' 출발<br>편도 ' + t.one + 'km' + (t.how ? ' · ' + t.how + '경로' : '') + ' · <a target="_blank" rel="noopener" href="' + kmap(t.org, t.cands[t.pick]) + '">카카오맵에서 보기</a></div>' : '');
-    const notes = [...t.why.map(w => '<span class="why">' + esc(w) + '</span>'), t.fuelFrom ? '유종은 부서원 유종 시트에서' : '', t.err ? '<span class="why">' + esc(t.err) + '</span>' : '', t.on && t.km != null && !p ? '<span class="why">출장일 유가를 주유소 시트에서 못 찾음</span>' : ''].filter(Boolean).join('<br>');
+    const notes = [...t.why.map(w => '<span class="why">' + esc(w) + '</span>'), t.note ? '<span class="why">' + esc(t.note) + '</span>' : '', t.fuelFrom ? '유종은 부서원 유종 시트에서' : '', t.err ? '<span class="why">' + esc(t.err) + '</span>' : '', t.on && t.km != null && !p ? '<span class="why">출장일 유가를 주유소 시트에서 못 찾음</span>' : ''].filter(Boolean).join('<br>');
     return '<tr class="' + (t.on ? '' : 'keep') + (err ? ' err' : '') + '"><td><label class="ck"><input type="checkbox" data-on="' + i + '"' + (t.on ? ' checked' : '') + '>운임</label></td><td class="n">' + t.r + '</td><td>' + esc(t.day.slice(5)) + '</td><td>' + esc(t.who) + '</td><td>' + esc(t.place) + ' → ' + esc(t.city) + '</td><td>' + pick + '</td><td>' + basis + '</td>' +
       '<td class="n">' + (t.on ? '<input class="km" inputmode="decimal" data-km="' + i + '" value="' + (t.km ?? '') + '" aria-label="왕복 km">' : '') + '</td><td>' + esc(t.fuel) + (ft === '하이브리드' ? ' <span class="muted">(하이브리드 연비)</span>' : '') + '</td><td class="n">' + (p ? p.v.toLocaleString('ko-KR') : '') + '</td><td class="n">' + (ft ? META.effVal[ft] : '') + '</td><td class="n"><b>' + (t.on ? won(f) : '') + '</b></td><td class="n">' + (t.kind === 're' ? '운임 ' + won(t.oldFare) + '<br><span class="muted">' + (t.oldKm ?? '') + 'km</span>' : '대중교통 ' + won(t.pub)) + '</td><td>' + notes + '</td></tr>';
   }).join('');
@@ -434,6 +439,15 @@ async function build() {
   };
   let n = 0;
   for (const t of ROWS) {
+    if (t.on && t.kind === 'flat') {   // 출장지=거주지 · 9시 전 출발: 일비만 정액, 식비 · 운임 · 대중교통비 · 이동거리 비움
+      const r = t.r;
+      if (C['일비']) put(C['일비'] + r, { n: HOME_FLAT * t.nDays });
+      if (C['식비']) put(C['식비'] + r, { n: 0 });
+      for (const k of ['운임', '대중교통비', '이동거리']) if (C[k] && val(S, C[k] + r) != null && val(S, C[k] + r) !== '') put(C[k] + r, {});
+      if (C['출발'] && cityKey(val(S, C['출발'] + r)) !== t.home) { const el = cell(C['출발'] + r), sv = el.getAttribute('s'); clear(el); el.setAttribute('s', blue(sv)); el.setAttribute('t', 'inlineStr'); const is = doc.createElementNS(NS, 'is'), tt = doc.createElementNS(NS, 't'); tt.textContent = t.home; is.appendChild(tt); el.appendChild(is) }
+      if (C['비고']) { const old = String(val(S, C['비고'] + r) || ''), lab = '거주지 정액'; if (!old.includes(lab)) { const rest = old.replace(/(근무지|거주지)\s*기준/g, '').split(/\s*,\s*/).map(x => x.trim()).filter(Boolean); put(C['비고'] + r, { s: [...rest, lab].join(', ') }) } }
+      n++; continue;
+    }
     if (!t.on || !(t.km > 0)) continue;
     const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t); if (!p || f == null) continue;
     const r = t.r;

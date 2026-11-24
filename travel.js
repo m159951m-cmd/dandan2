@@ -45,6 +45,14 @@ export function mealCount(t) {
   }
   return { n, per };
 }
+// 출장지 = 거주지: 9시 전 출발이면 집에서 바로 간 것 → 일비만 정액, 9시 이후 출발이면 출근했다가 간 것 → 근무지 기준 관외 여비
+export const HOME_FLAT = 20000;
+export function homeCase(t) {
+  const h = cityKey(t.home); if (!h || h === WORK.city) return '';
+  const dest = String(t.city || '').split(/[,·\s]+/).map(cityKey); if (!dest.includes(h)) return '';
+  const a = hm(String(t.time || '').split(/[~∼〜-]/)[0]);
+  return a != null && a < 9 * 60 ? 'flat' : 'late';
+}
 export const mealMoney = left => Math.floor(left / 3) * RATE.meal + MEAL[left % 3];
 export const FUEL = {
   gas: { n: '휘발유', eff: 11.97, unit: 'ℓ', key: 'g' },
@@ -139,8 +147,8 @@ export const WORK = { city: '창원', name: '경상남도교육청' };
 const OFFICE = { 서울: '서울특별시교육청', 부산: '부산광역시교육청', 대구: '대구광역시교육청', 인천: '인천광역시교육청', 광주: '광주광역시교육청', 대전: '대전광역시교육청', 울산: '울산광역시교육청', 세종: '세종특별자치시교육청' };
 export const cityKey = s => String(s || '').replace(/\s/g, '').replace(/^(경상남도|경남|경상북도|경북)/, '').replace(/(특별자치시|특별시|광역시|시|군)$/, '');
 export const officeOf = city => { const k = cityKey(city); if (!k) return ''; if (k === WORK.city) return WORK.name; return OFFICE[k] || (k + '교육지원청') };
-export const fromOf = t => t.fuel && t.fuel.on && t.fuel.basis === 'home' && cityKey(t.home) ? cityKey(t.home) : t.fuel && t.fuel.on && t.fuel.basis === 'work' ? WORK.city : (t.from || WORK.city);
-export const basisNote = t => t.fuel && t.fuel.on && t.fuel.basis && cityKey(t.home) && cityKey(t.home) !== WORK.city ? (t.fuel.basis === 'home' ? '거주지기준' : '근무지기준') : '';
+export const fromOf = t => homeCase(t) === 'flat' ? cityKey(t.home) : homeCase(t) === 'late' && t.fuel && t.fuel.on ? WORK.city : t.fuel && t.fuel.on && t.fuel.basis === 'home' && cityKey(t.home) ? cityKey(t.home) : t.fuel && t.fuel.on && t.fuel.basis === 'work' ? WORK.city : (t.from || WORK.city);
+export const basisNote = t => homeCase(t) === 'flat' ? '거주지 정액' : homeCase(t) === 'late' && t.fuel && t.fuel.on ? '근무지기준' : t.fuel && t.fuel.on && t.fuel.basis && cityKey(t.home) && cityKey(t.home) !== WORK.city ? (t.fuel.basis === 'home' ? '거주지기준' : '근무지기준') : '';
 let restKeyV = null;
 async function kakaoRest() { if (restKeyV != null) return restKeyV; try { const s = await getDoc(doc(C.fs, 'settings', 'kakao')); restKeyV = s.exists() && s.data().restKey || '' } catch (e) { restKeyV = '' } return restKeyV }
 async function searchPlace(q, size = 5) {
@@ -151,12 +159,24 @@ async function searchPlace(q, size = 5) {
   return (j.documents || []).map(d => ({ name: d.place_name, addr: d.road_address_name || d.address_name || '', x: +d.x, y: +d.y }));
 }
 async function officePoint(name) {
-  const key = 'geo-' + name; try { const c = JSON.parse(ls.get(key) || 'null'); if (c && c.x) return c } catch (e) { }
-  const L = await searchPlace(name, 3); const hit = L.find(p => p.name.replace(/\s/g, '').includes(name.replace(/\s/g, ''))) || L[0];
+  const key = 'geo3-' + name; try { const c = JSON.parse(ls.get(key) || 'null'); if (c && c.x) return c } catch (e) { }
+  // 이름이 정확히 같은 곳 → '본청' → 이름이 들어간 곳 중 가장 짧은 이름 (WEE센터 · 별관 같은 부속 기관이 잡히지 않게)
+  const nm = name.replace(/\s/g, ''), L = await searchPlace(name, 10), k = p => p.name.replace(/\s/g, '');
+  const hit = L.find(p => k(p) === nm) || L.find(p => k(p) === nm + '본청') || L.filter(p => k(p).includes(nm)).sort((a, b) => k(a).length - k(b).length)[0] || L[0];
   if (!hit) throw new Error('noplace:' + name);
   ls.set(key, JSON.stringify(hit)); return hit;
 }
+// 도로 거리(편도 km): 카카오내비 최단거리(카카오맵 경로 옵션 → 최단거리와 같음, 교통 상황과 상관없이 늘 같은 값) → 안 되면 OSRM
+let naviOff = false;
 async function roadKm(a, b) {
+  if (!naviOff) {
+    try {
+      const k = await kakaoRest();
+      const rr = await fetch('https://apis-navi.kakaomobility.com/v1/directions?priority=DISTANCE&origin=' + a.x + ',' + a.y + '&destination=' + b.x + ',' + b.y, { headers: { Authorization: 'KakaoAK ' + k } });
+      const jj = await rr.json(); const ro = jj.routes && jj.routes[0];
+      if (rr.ok && ro && ro.result_code === 0 && ro.summary) return ro.summary.distance / 1000;
+    } catch (e) { naviOff = true }
+  }
   const r = await fetch('https://router.project-osrm.org/route/v1/driving/' + a.x + ',' + a.y + ';' + b.x + ',' + b.y + '?overview=false');
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.code !== 'Ok' || !j.routes || !j.routes[0]) throw new Error('route');
@@ -174,10 +194,11 @@ async function autoDistance(pick) {
     if (!cands) { const q = t.city && !String(t.place || '').includes(cityKey(t.city)) ? cityKey(t.city) + ' ' + (t.place || '') : (t.place || t.city); cands = await searchPlace(q.trim(), 5); if (!cands.length && t.city) cands = await searchPlace(t.city, 3) }
     if (!cands.length) throw new Error('noplace:' + (t.place || t.city));
     const dest = cands[pick || 0], work = await officePoint(WORK.name);
-    const wkm = Math.round(2 * await roadKm(work, dest));
+    const rt = km => Math.round(km * 10) / 10 * 2, late = homeCase(t) === 'late';   // 편도(소수 첫째 자리) × 2
+    const wkm = Math.round(rt(await roadKm(work, dest)) * 10) / 10;
     const hName = officeOf(t.home); let home = null, hkm = null;
-    if (hName && hName !== WORK.name) { home = await officePoint(hName); hkm = Math.round(2 * await roadKm(home, dest)) }
-    const basis = hkm != null && hkm < wkm ? 'home' : 'work';
+    if (hName && hName !== WORK.name && !late) { home = await officePoint(hName); hkm = Math.round(rt(await roadKm(home, dest)) * 10) / 10 }
+    const basis = hkm != null && hkm < wkm ? 'home' : 'work';   // 출장지=거주지 · 9시 이후 출발은 출근 후 출장이라 근무지 기준만
     t.fuel.dist = { cands, pick: pick || 0, dest, work: { ...work, km: wkm, link: mapLink(work, dest) }, home: home ? { ...home, km: hkm, link: mapLink(home, dest) } : null, for: [t.place, t.city, t.home].join('|') };
     t.fuel.basis = basis; t.fuel.km = basis === 'home' ? hkm : wkm; t.from = fromOf(t);
     if (cur === t) renderForm();
@@ -192,7 +213,7 @@ function distHTML(t) {
   return (stale ? '<p class="tv-warn">출장지 · 거주지가 바뀌었어요. 다시 계산해 주세요.</p>' : '') +
     '<p class="meta">도착: <b>' + esc(d.dest.name) + '</b> ' + esc(d.dest.addr) + (d.cands.length > 1 ? ' <select data-dist-pick aria-label="다른 장소 고르기">' + d.cands.map((c, i) => '<option value="' + i + '"' + (i === d.pick ? ' selected' : '') + '>' + esc(c.name) + ' · ' + esc(c.addr) + '</option>').join('') + '</select>' : '') + '</p>' +
     '<ul class="tv-dists">' + row('work', d.work) + row('home', d.home) + '</ul>' +
-    '<p class="meta">' + (basisNote(t) ? '비고에 <b>' + basisNote(t) + '</b>이 자동으로 들어가요. ' : '') + '거리는 도로 기준 추정값이에요. 지도 링크로 확인하고 다르면 직접 고쳐도 돼요.</p>';
+    '<p class="meta">' + (basisNote(t) ? '비고에 <b>' + basisNote(t) + '</b>이 자동으로 들어가요. ' : '') + '거리는 카카오내비 최단거리예요 (카카오맵 길찾기 → 경로 옵션 → 최단거리). 다르면 직접 고쳐도 돼요.</p>';
 }
 
 /* ---------- 계산 ---------- */
@@ -205,6 +226,11 @@ export function calc(t) {
     return { edu: E, rider: false, days: E.n, meals: E.mealCnt, mealLeft: E.mealCnt, dayAmt, mealAmt, fareSum, fuel, lodging: E.lodging, toll: 0, cut, total: dayAmt + mealAmt + fuel + fareSum + E.lodging - cut };
   }
   const days = dayCount(t.start, t.end);
+  if (homeCase(t) === 'flat') {
+    const mc0 = mealCount(t), dayAmt = t.dayManual ? num(t.dayAmt) : HOME_FLAT * days, mealAmt = t.mealManual ? num(t.mealAmt) : 0;
+    const lodging = num(t.lodging && t.lodging.actual), cut = num(t.deduct);
+    return { homeFlat: true, rider: !!t.rider, days, meals: mc0.n, mealLeft: 0, dayAmt, mealAmt, fareSum: 0, fuel: 0, lodging, toll: 0, cut, total: dayAmt + mealAmt + lodging - cut };
+  }
   const dayAmt = t.dayManual ? num(t.dayAmt) : (t.govCar ? RATE.day / 2 : RATE.day) * days;
   const mc = mealCount(t), mealLeft = Math.max(0, mc.n - num(t.mealsGiven));
   const mealAmt = t.mealManual ? num(t.mealAmt) : mealMoney(mealLeft);
@@ -277,7 +303,7 @@ function renderForm() {
     '<fieldset><legend>출장 일정</legend><div class="row3">' + I('start', '출장 시작일', t.start, 'type="date" required') + I('end', '끝나는 날 (하루면 비움)', t.end, 'type="date"') + I('time', '출장 시간', t.time, 'placeholder="09:00~18:00"') + '</div>' +
     '<div class="row3">' + I('place', '출장지 (장소)', t.place, 'required placeholder="예: 경주 한화리조트"') + I('city', '출장 지역 (시·군)', t.city, 'placeholder="예: 경주"') + I('home', '거주지 (시·군)', t.home) + '</div>' +
     I('purpose', '출장 목적', t.purpose, 'required') + '</fieldset>' +
-    '<fieldset><legend>일비 · 식비 · 숙박비</legend><div class="row3"><label class="fl">일비 (' + c.days + '일)<input name="dayAmt" value="' + c.dayAmt + '" inputmode="numeric"></label>' +
+    '<fieldset><legend>일비 · 식비 · 숙박비</legend>' + (homeCase(t) === 'flat' ? '<p class="tv-warn">출장지가 거주지(' + esc(cityKey(t.home)) + ')이고 9시 전에 출발 → 집에서 바로 간 것으로 보고 <b>일비 ' + won(HOME_FLAT) + '원 정액</b>만 줘요 (식비 · 운임 없음).</p>' : homeCase(t) === 'late' ? '<p class="meta">출장지가 거주지(' + esc(cityKey(t.home)) + ')지만 9시 이후 출발이라 출근 후 출장 → <b>근무지 기준 관외 여비</b>로 계산해요.</p>' : '') + '<div class="row3"><label class="fl">일비 (' + c.days + '일)<input name="dayAmt" value="' + c.dayAmt + '" inputmode="numeric"></label>' +
     '<label class="fl">식사 제공받은 횟수 (전체 ' + c.meals + '끼 중)<input name="mealsGiven" type="number" min="0" max="' + c.meals + '" value="' + num(t.mealsGiven) + '"></label><label class="fl">식비<input name="mealAmt" value="' + c.mealAmt + '" inputmode="numeric"></label></div>' +
     '<label class="check"><input type="checkbox" name="govCar"' + (t.govCar ? ' checked' : '') + '> 관용차량으로 다녀왔어요 (일비 1/2)</label>' +
     '<p class="meta tv-hint" id="tv-mealh">' + mealHint(t, c) + '</p>' +
@@ -634,8 +660,8 @@ function rowOf(t, i) {
   const c = calc(t), multi = t.end && t.end > t.start;
   const notes = [basisNote(t), t.edu && t.edu.on ? eduNote(t) : '', t.rider ? '동승' : '', t.govCar ? '관용차량' : '', num(t.mealsGiven) ? num(t.mealsGiven) + '식 제공' : '', t.note || ''].filter(Boolean).join(', ');
   const [yy, mm, dd] = t.start.split('-').map(Number);
-  return [i, multi ? t.start + '~' + (t.end.slice(0, 7) === t.start.slice(0, 7) ? t.end.slice(8) : t.end.slice(5)) : new Date(Date.UTC(yy, mm - 1, dd)), t.time || '', t.name, t.from || '', t.place || '', t.city || '',
-    t.fuel && t.fuel.on ? num(t.fuel.km) || null : null, t.fuel && t.fuel.on ? (FUEL[t.fuel.type] || {}).n : null, c.dayAmt, c.mealAmt, c.fuel || null, c.toll || null, c.lodging || null, c.fareSum || null, c.cut || null, null, null, '관외', notes || null];
+  return [i, multi ? t.start + '~' + (t.end.slice(0, 7) === t.start.slice(0, 7) ? t.end.slice(8) : t.end.slice(5)) : new Date(Date.UTC(yy, mm - 1, dd)), t.time || '', t.name, c.homeFlat ? cityKey(t.home) : t.from || '', t.place || '', t.city || '',
+    t.fuel && t.fuel.on && !c.homeFlat ? num(t.fuel.km) || null : null, t.fuel && t.fuel.on && !c.homeFlat ? (FUEL[t.fuel.type] || {}).n : null, c.dayAmt, c.mealAmt, c.fuel || null, c.toll || null, c.lodging || null, c.fareSum || null, c.cut || null, null, null, '관외', notes || null];
 }
 function fillRow(ws, r, vals, style) {
   vals.forEach((v, k) => { const cell = ws.getCell(r, k + 1); if (style && style[k]) cell.style = JSON.parse(JSON.stringify(style[k])); if (v !== null && v !== undefined) cell.value = v; else cell.value = null });
@@ -753,7 +779,7 @@ async function buildHwpx(L) {
     setCell(m['2,8'], '제공'); setCell(m['4,8'], given + '회'); setCell(m['6,8'], '미제공'); setCell(m['8,8'], c.mealLeft + '회'); setCell(m['10,8'], won(c.mealAmt) + '원');
     const fr = fareRows(t);
     for (let r = 0; r < 4; r++) { const f = fr[r] || {}; setCell(m['1,' + (11 + r)], f.date ? dot(f.date) : ''); setCell(m['2,' + (11 + r)], f.mode || ''); setCell(m['4,' + (11 + r)], f.from || ''); setCell(m['6,' + (11 + r)], f.to || ''); setCell(m['8,' + (11 + r)], f.grade || ''); setCell(m['10,' + (11 + r)], f.mode && f.mode !== '자차' && num(f.amt) ? won(f.amt) + '원' : '') }
-    if (t.fuel && t.fuel.on) {
+    if (t.fuel && t.fuel.on && !c.homeFlat) {
       const F = FUEL[t.fuel.type] || {};
       setCell(m['1,15'], F.n || ''); setCell(m['2,15'], num(t.fuel.km) + 'km'); setCell(m['4,15'], num(t.fuel.price) ? num(t.fuel.price).toLocaleString('ko-KR') + '원/' + F.unit : '유가 확인 필요');
       setCell(m['6,15'], 'km/' + F.unit + ' ' + (num(t.fuel.eff) || F.eff)); setCell(m['8,15'], c.toll ? '통행료 ' + won(c.toll) + '원' : ''); setCell(m['10,15'], won(c.fuel + c.toll) + '원');
