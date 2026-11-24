@@ -51,7 +51,7 @@ ol{margin:0;padding-left:20px}
     <h1>운임 일괄 계산 <span class="muted" style="font-size:14px;font-weight:400">대중교통비 → 자가용 운임(연료비)</span></h1>
     <ol class="muted">
       <li>월별 「출장여비 정산신청내역」 엑셀을 아래에 끌어다 놓아요. <b>파일은 이 PC 안에서만 처리</b>되고, 카카오에는 출장지 이름만 보내요.</li>
-      <li>대중교통비가 들어 있는 줄을 찾아, 대중교통으로 보이는 건(타 시도 원거리 · 실비 · 영수증 금액 · 차량 없음 등)은 그대로 두고 나머지를 운임으로 바꿔요.</li>
+      <li>이미 운임이 들어간 파일을 올리면 그 줄들의 거리를 다시 계산해서 달라진 줄만 고쳐요. 대중교통비가 들어 있는 줄을 찾아, 대중교통으로 보이는 건(타 시도 원거리 · 실비 · 영수증 금액 · 차량 없음 등)은 그대로 두고 나머지를 운임으로 바꿔요.</li>
       <li>거리는 <b>카카오내비</b>(추천경로와 최단경로 중 짧은 쪽, 안 되면 OSRM 도로거리)로 왕복을 계산해요. 줄마다 「카카오맵에서 보기」로 확인할 수 있어요. 근무지(경상남도교육청)와 거주지(부서원 유종 시트의 생근지) 중 짧은 쪽을 써요.</li>
       <li>표에서 확인 · 수정한 뒤 <b>엑셀 내려받기</b>를 누르면 이동거리 · 운임(수식) · 유종이 채워지고 대중교통비는 비워진 파일이 나와요. 바뀐 칸은 노란색이에요.</li>
     </ol>
@@ -72,7 +72,7 @@ ol{margin:0;padding-left:20px}
     </div>
     <div class="sum" id="sum"></div>
     <div class="legend"><span class="tag k">카카오내비</span>카카오 추천경로 거리 · <span class="tag o">OSRM</span>카카오내비가 안 될 때 쓴 도로거리 · <span class="tag h">거주지</span>거주지 출발이 더 짧아 거주지 기준(엑셀의 출발 칸은 거주지 기준이면 거주지, 근무지 기준이면 창원으로 맞추고 바꾼 칸은 파랑 글씨) · 장소가 틀리면 「찾은 장소」에서 다른 곳을 고르고, 거리는 노란 칸에서 직접 고칠 수 있어요.</div>
-    <div class="tw"><table><thead><tr><th>운임으로</th><th>행</th><th>출장일</th><th>출장자</th><th>출장지 → 도착</th><th>찾은 장소</th><th>기준</th><th>왕복 km</th><th>유종</th><th>유가</th><th>연비</th><th>운임</th><th>기존 대중교통비</th><th>메모</th></tr></thead><tbody id="tb"></tbody></table></div>
+    <div class="tw"><table><thead><tr><th>바꾸기</th><th>행</th><th>출장일</th><th>출장자</th><th>출장지 → 도착</th><th>찾은 장소</th><th>기준</th><th>왕복 km</th><th>유종</th><th>유가</th><th>연비</th><th>운임</th><th>기존 금액</th><th>메모</th></tr></thead><tbody id="tb"></tbody></table></div>
   </div>
 </main>
 <script src="jszip.min.js"></script>
@@ -271,14 +271,21 @@ async function analyze() {
   for (const r of Object.keys(H.rows).map(Number).filter(r => r > H.row).sort((a, b) => a - b)) {
     const g = k => C[k] ? val(S, C[k] + r) : null;
     const who = String(g('출장자') || '').trim(); if (!who) continue;
-    const pub = g('대중교통비'); if (typeof pub !== 'number' || pub <= 0) continue;
+    const pub0 = g('대중교통비'), oldFare = g('운임'), oldKm = g('이동거리');
+    if (!(typeof pub0 === 'number' && pub0 > 0) && !(typeof oldFare === 'number' && oldFare > 0)) continue;
     const dRaw = g('출장일'); let day = '';
     if (typeof dRaw === 'number') day = xdate(dRaw); else { const m = /(\d{4})\D+(\d{1,2})\D+(\d{1,2})/.exec(String(dRaw || '')); if (m) day = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') }
     const from = cityKey(g('출발') || WORK.city), place = String(g('출장지') || '').trim(), city = String(g('도착') || '').trim(), memo = String(g('비고') || '');
+    // 대중교통비가 있는 줄 → 운임으로 바꿀 후보 / 이미 운임이 들어간 줄 → 거리만 다시 계산 (동승 제외)
+    const kind = typeof pub0 === 'number' && pub0 > 0 ? 'pub' : 're';
+    if (kind === 're' && /동승/.test(memo)) continue;
+    const pub = kind === 'pub' ? pub0 : 0;
     const ro = roster[norm(who)] || {};
     let fuel = String(g('유종') || '').trim(), fuelFrom = '';
     if (!fuel && ro.fuel) { fuel = ro.fuel; fuelFrom = 'roster' }
     const why = [];
+    if (kind === 're') { const home = ro.home && ro.home !== WORK.city ? ro.home : '';
+      ROWS.push({ r, kind, oldFare, oldKm, who, day, from, place, city, memo, pub: 0, fuel, fuelFrom, home, why: [], on: true, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' }); continue }
     const cities = city.split(/[,·\s]+/).map(cityKey).filter(Boolean);
     if (cities.some(c => !NEAR.has(c))) why.push('타 시도 원거리(' + city + ')');
     if (TRANSIT.test(memo)) why.push('비고: ' + memo);
@@ -286,7 +293,7 @@ async function analyze() {
     if (!fuel) why.push('차량 유종 없음');
     const home = ro.home && ro.home !== WORK.city ? ro.home : '';
     if (home && cities.includes(home)) why.push('출장지=거주지(' + home + ') → 거주지 정액 대상인지 확인');
-    ROWS.push({ r, who, day, from, place, city, memo, pub, fuel, fuelFrom, home, why, on: !why.length, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' });
+    ROWS.push({ r, kind, who, day, from, place, city, memo, pub, fuel, fuelFrom, home, why, on: !why.length, cands: null, pick: 0, km: null, src: '', basis: 'work', err: '' });
   }
 }
 
@@ -350,8 +357,8 @@ async function calcAll() {
 // ── 표 ──
 function render() {
   const on = ROWS.filter(t => t.on), keep = ROWS.filter(t => !t.on);
-  const fare = on.reduce((a, t) => a + (fareOf(t) || 0), 0), pubOn = on.reduce((a, t) => a + t.pub, 0);
-  $('sum').innerHTML = '<span>운임으로 바꿀 줄 <b>' + on.length + '</b>건</span><span>대중교통 그대로 <b>' + keep.length + '</b>건</span><span>바꿀 줄의 기존 대중교통비 <b>' + won(pubOn) + '</b>원</span><span>새 운임 합계 <b>' + won(fare) + '</b>원</span><span>차이 <b>' + (fare - pubOn >= 0 ? '+' : '') + won(fare - pubOn) + '</b>원</span>';
+  const fare = on.reduce((a, t) => a + (fareOf(t) || 0), 0), pubOn = on.reduce((a, t) => a + (t.kind === 're' ? t.oldFare : t.pub), 0), nRe = on.filter(t => t.kind === 're').length;
+  $('sum').innerHTML = '<span>운임으로 바꿀 줄 <b>' + (on.length - nRe) + '</b>건</span><span>운임 다시 계산 <b>' + nRe + '</b>건</span><span>대중교통 그대로 <b>' + keep.length + '</b>건</span><span>바꿀 줄의 기존 금액 <b>' + won(pubOn) + '</b>원</span><span>새 운임 합계 <b>' + won(fare) + '</b>원</span><span>차이 <b>' + (fare - pubOn >= 0 ? '+' : '') + won(fare - pubOn) + '</b>원</span>';
   $('tb').innerHTML = ROWS.map((t, i) => {
     const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t), err = t.on && (t.err || (t.km != null && f == null));
     const pick = t.cands ? '<select data-pick="' + i + '" aria-label="찾은 장소">' + t.cands.map((c, j) => '<option value="' + j + '"' + (j === t.pick ? ' selected' : '') + '>' + esc(c.name) + ' · ' + esc(c.addr) + '</option>').join('') + '</select>' : '<span class="muted">' + (t.on ? '계산 전' : '') + '</span>';
@@ -359,7 +366,7 @@ function render() {
       (t.org && t.cands ? '<div class="muted" style="font-size:12px;line-height:1.4;margin-top:3px">' + esc(t.org.name) + ' 출발<br>편도 ' + t.one + 'km' + (t.how ? ' · ' + t.how + '경로' : '') + ' · <a target="_blank" rel="noopener" href="' + kmap(t.org, t.cands[t.pick]) + '">카카오맵에서 보기</a></div>' : '');
     const notes = [...t.why.map(w => '<span class="why">' + esc(w) + '</span>'), t.fuelFrom ? '유종은 부서원 유종 시트에서' : '', t.err ? '<span class="why">' + esc(t.err) + '</span>' : '', t.on && t.km != null && !p ? '<span class="why">출장일 유가를 주유소 시트에서 못 찾음</span>' : ''].filter(Boolean).join('<br>');
     return '<tr class="' + (t.on ? '' : 'keep') + (err ? ' err' : '') + '"><td><label class="ck"><input type="checkbox" data-on="' + i + '"' + (t.on ? ' checked' : '') + '>운임</label></td><td class="n">' + t.r + '</td><td>' + esc(t.day.slice(5)) + '</td><td>' + esc(t.who) + '</td><td>' + esc(t.place) + ' → ' + esc(t.city) + '</td><td>' + pick + '</td><td>' + basis + '</td>' +
-      '<td class="n">' + (t.on ? '<input class="km" inputmode="decimal" data-km="' + i + '" value="' + (t.km ?? '') + '" aria-label="왕복 km">' : '') + '</td><td>' + esc(t.fuel) + (ft === '하이브리드' ? ' <span class="muted">(하이브리드 연비)</span>' : '') + '</td><td class="n">' + (p ? p.v.toLocaleString('ko-KR') : '') + '</td><td class="n">' + (ft ? META.effVal[ft] : '') + '</td><td class="n"><b>' + (t.on ? won(f) : '') + '</b></td><td class="n">' + won(t.pub) + '</td><td>' + notes + '</td></tr>';
+      '<td class="n">' + (t.on ? '<input class="km" inputmode="decimal" data-km="' + i + '" value="' + (t.km ?? '') + '" aria-label="왕복 km">' : '') + '</td><td>' + esc(t.fuel) + (ft === '하이브리드' ? ' <span class="muted">(하이브리드 연비)</span>' : '') + '</td><td class="n">' + (p ? p.v.toLocaleString('ko-KR') : '') + '</td><td class="n">' + (ft ? META.effVal[ft] : '') + '</td><td class="n"><b>' + (t.on ? won(f) : '') + '</b></td><td class="n">' + (t.kind === 're' ? '운임 ' + won(t.oldFare) + '<br><span class="muted">' + (t.oldKm ?? '') + 'km</span>' : '대중교통 ' + won(t.pub)) + '</td><td>' + notes + '</td></tr>';
   }).join('');
 }
 $('tb').addEventListener('change', async e => {
@@ -430,6 +437,7 @@ async function build() {
     if (!t.on || !(t.km > 0)) continue;
     const p = priceOf(t), ft = ftype(t.fuel), f = fareOf(t); if (!p || f == null) continue;
     const r = t.r;
+    if (t.kind === 're' && t.km === t.oldKm && f === t.oldFare) continue;   // 거리 · 운임이 그대로면 손대지 않음
     put(C['이동거리'] + r, { n: t.km });
     // 출발 칸을 실제 기준에 맞추기: 거주지 기준 → 거주지, 근무지 기준 → 창원 (바꾼 칸은 파랑 글씨)
     const want = t.basis === 'home' && t.home ? t.home : WORK.city;
@@ -437,7 +445,7 @@ async function build() {
     if (t.fuelFrom) put(C['유종'] + r, { s: t.fuel });
     const effR = M.effRef[ft] || String(M.effVal[ft]);
     put(C['운임'] + r, { f: 'ROUNDDOWN(' + C['이동거리'] + r + '*' + p.ref + '/' + effR + ',-1)', n: f });
-    put(C['대중교통비'] + r, {});
+    if (t.kind === 'pub') put(C['대중교통비'] + r, {});
     if (C['비고']) {
       const old = String(val(S, C['비고'] + r) || '');
       // 거주지가 창원이 아닌 사람: 비고에 실제 계산 기준(거주지기준/근무지기준)을 적고, 반대로 적혀 있던 건 고침
@@ -469,7 +477,7 @@ async function build() {
 }
 $('dl').addEventListener('click', async () => {
   $('dl').disabled = true;
-  try { const n = await build(); st('✓ ' + n + '건을 운임으로 바꾼 파일을 내려받았어요. 엑셀로 열면 합계가 다시 계산돼요. 다시 받으려면 파일을 새로 올려 주세요.', 'ok') }
+  try { const n = await build(); st('✓ ' + n + '줄을 고친 파일을 내려받았어요. 엑셀로 열면 합계가 다시 계산돼요. 다시 받으려면 파일을 새로 올려 주세요.', 'ok') }
   catch (e) { console.error(e); st('파일을 만들지 못했어요: ' + esc(e.message), 'bad'); $('dl').disabled = false }
 });
 
@@ -482,7 +490,7 @@ async function open(file) {
     await loadXlsx(file); await analyze();
     $('fname').textContent = '· ' + file.name; $('res').hidden = false; $('dl').disabled = true;
     const miss = [!META.pcol && '주유소(유가) 시트', !Object.keys(META.effRef).length && '참고 시트 연비(기본값 사용)'].filter(Boolean);
-    st('대중교통비가 있는 줄 ' + ROWS.length + '건 중 ' + ROWS.filter(t => t.on).length + '건을 운임으로 바꿀 후보로 골랐어요. <b>거리 계산하기</b>를 눌러 주세요.' + (miss.length ? '<br>⚠ 못 찾은 것: ' + miss.join(', ') : ''), miss.length ? 'warn' : '');
+    st((() => { const P = ROWS.filter(t => t.kind === 'pub'), R = ROWS.filter(t => t.kind === 're'); return '대중교통비가 있는 줄 ' + P.length + '건 중 ' + P.filter(t => t.on).length + '건을 운임으로 바꿀 후보로 골랐어요.' + (R.length ? ' 이미 운임이 들어간 ' + R.length + '건은 거리를 다시 계산해서, 달라진 줄만 고쳐요.' : '') + ' <b>거리 계산하기</b>를 눌러 주세요.' })() + (miss.length ? '<br>⚠ 못 찾은 것: ' + miss.join(', ') : ''), miss.length ? 'warn' : '');
     render();
   } catch (e) { console.error(e); st(esc(e.message || '파일을 읽지 못했어요'), 'bad') }
 }
